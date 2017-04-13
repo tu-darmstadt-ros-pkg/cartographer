@@ -44,6 +44,7 @@
   <depend>libgoogle-glog-dev</depend>
   <depend>libwebp-dev</depend>
   <depend>lua5.2-dev</depend>
+  <depend>open_chisel</depend>
   <depend>protobuf-dev</depend>
 
   <export>

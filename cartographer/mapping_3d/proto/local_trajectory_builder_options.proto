@@ -17,6 +17,7 @@ syntax = "proto2";
 import "cartographer/mapping_3d/proto/motion_filter_options.proto";
 import "cartographer/sensor/proto/adaptive_voxel_filter_options.proto";
 import "cartographer/mapping_3d/proto/kalman_local_trajectory_builder_options.proto";
+import "cartographer/mapping_3d/proto/kalman_tsdf_local_trajectory_builder_options.proto";
 import "cartographer/mapping_3d/proto/optimizing_local_trajectory_builder_options.proto";
 import "cartographer/mapping_3d/proto/submaps_options.proto";
 import "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.proto";
@@ -27,6 +28,7 @@ message LocalTrajectoryBuilderOptions {
   enum Use {
     KALMAN = 0;
     OPTIMIZING = 1;
+    KALMAN_TSDF = 2;
   }
 
   // Laser limits.

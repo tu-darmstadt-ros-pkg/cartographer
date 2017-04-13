@@ -80,12 +80,22 @@ int MapBuilder::AddTrajectoryBuilder(
     const std::unordered_set<string>& expected_sensor_ids) {
   const int trajectory_id = trajectory_builders_.size();
   if (options_.use_trajectory_builder_3d()) {
-    trajectory_builders_.push_back(
-        common::make_unique<CollatedTrajectoryBuilder>(
-            &sensor_collator_, trajectory_id, expected_sensor_ids,
-            common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
-                options_.trajectory_builder_3d_options(),
-                sparse_pose_graph_3d_.get())));
+      if(options_.use_tsdf()){
+        trajectory_builders_.push_back(
+            common::make_unique<CollatedTrajectoryBuilder>(
+                &sensor_collator_, trajectory_id, expected_sensor_ids,
+                common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
+                    options_.trajectory_builder_3d_options(),
+                    sparse_pose_graph_3d_.get())));
+      }
+      else{
+          trajectory_builders_.push_back(
+              common::make_unique<CollatedTrajectoryBuilder>(
+                  &sensor_collator_, trajectory_id, expected_sensor_ids,
+                  common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
+                      options_.trajectory_builder_3d_options(),
+                      sparse_pose_graph_3d_.get())));
+      }
   } else {
     trajectory_builders_.push_back(
         common::make_unique<CollatedTrajectoryBuilder>(
