@@ -28,7 +28,6 @@ message LocalTrajectoryBuilderOptions {
   enum Use {
     KALMAN = 0;
     OPTIMIZING = 1;
-    KALMAN_TSDF = 2;
   }
 
   // Laser limits.

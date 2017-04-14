@@ -26,6 +26,7 @@
 #include "cartographer/mapping/collated_trajectory_builder.h"
 #include "cartographer/mapping_2d/global_trajectory_builder.h"
 #include "cartographer/mapping_3d/global_trajectory_builder.h"
+#include "cartographer/mapping_3d/global_tsdf_trajectory_builder.h"
 #include "cartographer/mapping_3d/local_trajectory_builder_options.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/sensor/voxel_filter.h"
@@ -84,7 +85,7 @@ int MapBuilder::AddTrajectoryBuilder(
         trajectory_builders_.push_back(
             common::make_unique<CollatedTrajectoryBuilder>(
                 &sensor_collator_, trajectory_id, expected_sensor_ids,
-                common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
+                common::make_unique<mapping_3d::GlobalTSDFTrajectoryBuilder>(
                     options_.trajectory_builder_3d_options(),
                     sparse_pose_graph_3d_.get())));
       }

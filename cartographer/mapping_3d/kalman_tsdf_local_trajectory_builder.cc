@@ -19,7 +19,6 @@
 #include "cartographer/common/make_unique.h"
 #include "cartographer/common/time.h"
 #include "cartographer/kalman_filter/proto/pose_tracker_options.pb.h"
-#include "cartographer/mapping_2d/scan_matching/proto/real_time_correlative_scan_matcher_options.pb.h"
 #include "cartographer/mapping_3d/proto/local_trajectory_builder_options.pb.h"
 #include "cartographer/mapping_3d/proto/submaps_options.pb.h"
 #include "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.pb.h"
@@ -31,14 +30,10 @@ namespace mapping_3d {
 KalmanTSDFLocalTrajectoryBuilder::KalmanTSDFLocalTrajectoryBuilder(
     const proto::LocalTrajectoryBuilderOptions& options)
     : options_(options),
-      submaps_(common::make_unique<Submaps>(options.submaps_options())),
+      submaps_(common::make_unique<TSDFs>(options.submaps_options())),
       scan_matcher_pose_estimate_(transform::Rigid3d::Identity()),
       motion_filter_(options.motion_filter_options()),
-      real_time_correlative_scan_matcher_(
-          common::make_unique<scan_matching::RealTimeCorrelativeScanMatcher>(
-              options_.kalman_local_trajectory_builder_options()
-                  .real_time_correlative_scan_matcher_options())),
-      ceres_scan_matcher_(common::make_unique<scan_matching::CeresScanMatcher>(
+      ceres_scan_matcher_(common::make_unique<scan_matching::CeresTSDFScanMatcher>(
           options_.ceres_scan_matcher_options())),
       num_accumulated_(0),
       first_pose_prediction_(transform::Rigid3f::Identity()),
@@ -46,7 +41,7 @@ KalmanTSDFLocalTrajectoryBuilder::KalmanTSDFLocalTrajectoryBuilder(
 
 KalmanTSDFLocalTrajectoryBuilder::~KalmanTSDFLocalTrajectoryBuilder() {}
 
-const mapping_3d::Submaps* KalmanTSDFLocalTrajectoryBuilder::submaps() const {
+const TSDFs *KalmanTSDFLocalTrajectoryBuilder::submaps() const {
   return submaps_.get();
 }
 
@@ -145,12 +140,6 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       options_.high_resolution_adaptive_voxel_filter_options());
   const sensor::PointCloud filtered_point_cloud_in_tracking =
       adaptive_voxel_filter.Filter(filtered_range_data.returns);
-  if (options_.kalman_local_trajectory_builder_options()
-          .use_online_correlative_scan_matching()) {
-    real_time_correlative_scan_matcher_->Match(
-        pose_prediction, filtered_point_cloud_in_tracking,
-        submaps_->high_resolution_matching_grid(), &initial_ceres_pose);
-  }
 
   transform::Rigid3d pose_observation;
   ceres::Solver::Summary summary;
@@ -159,12 +148,19 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       options_.low_resolution_adaptive_voxel_filter_options());
   const sensor::PointCloud low_resolution_point_cloud_in_tracking =
       low_resolution_adaptive_voxel_filter.Filter(filtered_range_data.returns);
+  /*
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
                              {{&filtered_point_cloud_in_tracking,
                                &submaps_->high_resolution_matching_grid()},
                               {&low_resolution_point_cloud_in_tracking,
                                &submaps_->low_resolution_matching_grid()}},
-                             &pose_observation, &summary);
+                             &pose_observation, &summary);*/
+
+  int coarsening_factor = 1;
+
+  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
+     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
+     coarsening_factor, &pose_observation, &summary);
   pose_tracker_->AddPoseObservation(
       time, pose_observation,
       options_.kalman_local_trajectory_builder_options()
@@ -219,14 +215,18 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
   }
-  const Submap* const matching_submap =
+  const TSDF* const matching_submap =
       submaps_->Get(submaps_->matching_index());
-  std::vector<const Submap*> insertion_submaps;
+  std::vector<const TSDF*> insertion_submaps;
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
+  /*
   submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()));
+      range_data_in_tracking, pose_observation.cast<float>()));*/
+
+  submaps_->InsertRangeData(range_data_in_tracking, pose_observation);
+
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,
       submaps_.get(), matching_submap, insertion_submaps});

@@ -27,6 +27,7 @@
 #include "cartographer/common/port.h"
 #include "cartographer/mapping/proto/submap_visualization.pb.h"
 #include "cartographer/mapping/submaps.h"
+#include "cartographer/mapping_3d/submaps.h"
 #include "cartographer/mapping_2d/probability_grid.h"
 #include "cartographer/mapping_2d/range_data_inserter.h"
 #include "cartographer/mapping_3d/hybrid_grid.h"
@@ -68,12 +69,12 @@ class TSDFs : public mapping::Submaps {
    void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
                         const transform::Rigid3d& pose_observation);
 
-  /*void SubmapToProto(
+  void SubmapToProto(
       int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
       const transform::Rigid3d& global_submap_pose,
       mapping::proto::SubmapQuery::Response* response) const override;
 
-  //
+  /*
 
   // Returns the 'high_resolution' HybridGrid to be used for matching.
   const HybridGrid& high_resolution_matching_grid() const;

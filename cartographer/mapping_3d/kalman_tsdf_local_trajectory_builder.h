@@ -22,12 +22,11 @@
 #include "cartographer/common/time.h"
 #include "cartographer/kalman_filter/pose_tracker.h"
 #include "cartographer/mapping/global_trajectory_builder_interface.h"
-#include "cartographer/mapping_3d/local_trajectory_builder_interface.h"
+#include "cartographer/mapping_3d/local_tsdf_trajectory_builder_interface.h"
 #include "cartographer/mapping_3d/motion_filter.h"
 #include "cartographer/mapping_3d/proto/local_trajectory_builder_options.pb.h"
-#include "cartographer/mapping_3d/scan_matching/ceres_scan_matcher.h"
-#include "cartographer/mapping_3d/scan_matching/real_time_correlative_scan_matcher.h"
-#include "cartographer/mapping_3d/submaps.h"
+#include "cartographer/mapping_3d/scan_matching/ceres_tsdf_scan_matcher.h"
+#include "cartographer/mapping_3d/tsdfs.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/sensor/voxel_filter.h"
 
@@ -36,7 +35,7 @@ namespace mapping_3d {
 
 // Wires up the local SLAM stack (i.e. UKF, scan matching, etc.) without loop
 // closure.
-class KalmanTSDFLocalTrajectoryBuilder : public LocalTrajectoryBuilderInterface {
+class KalmanTSDFLocalTrajectoryBuilder : public LocalTSDFTrajectoryBuilderInterface {
  public:
   explicit KalmanTSDFLocalTrajectoryBuilder(
       const proto::LocalTrajectoryBuilderOptions& options);
@@ -54,7 +53,7 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTrajectoryBuilderInterface 
   void AddOdometerData(common::Time time,
                        const transform::Rigid3d& pose) override;
   void AddTrajectoryNodeIndex(int trajectory_node_index) override;
-  const mapping_3d::Submaps* submaps() const override;
+  const mapping_3d::TSDFs* submaps() const override;
   const PoseEstimate& pose_estimate() const override;
 
  private:
@@ -67,7 +66,7 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTrajectoryBuilderInterface 
       const kalman_filter::PoseCovariance& covariance_estimate);
 
   const proto::LocalTrajectoryBuilderOptions options_;
-  std::unique_ptr<mapping_3d::Submaps> submaps_;
+  std::unique_ptr<mapping_3d::TSDFs> submaps_;
 
   PoseEstimate last_pose_estimate_;
 
@@ -75,9 +74,7 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTrajectoryBuilderInterface 
   transform::Rigid3d scan_matcher_pose_estimate_;
 
   MotionFilter motion_filter_;
-  std::unique_ptr<scan_matching::RealTimeCorrelativeScanMatcher>
-      real_time_correlative_scan_matcher_;
-  std::unique_ptr<scan_matching::CeresScanMatcher> ceres_scan_matcher_;
+  std::unique_ptr<scan_matching::CeresTSDFScanMatcher> ceres_scan_matcher_;
 
   std::unique_ptr<kalman_filter::PoseTracker> pose_tracker_;
 

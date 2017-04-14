@@ -152,6 +152,27 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     }
 }
 
+
+
+void TSDFs::SubmapToProto(
+    int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
+    const transform::Rigid3d& global_submap_pose,
+    mapping::proto::SubmapQuery::Response* const response) const {
+    LOG(WARNING) << "SubmapToProto not implemented for TSDF ";
+    //TODO implement
+}
+
+void TSDFs::AddTrajectoryNodeIndex(const int trajectory_node_index) {
+  for (int i = 0; i != size(); ++i) {
+    TSDF& submap = *submaps_[i];
+    if (submap.end_range_data_index == num_range_data_ &&
+        submap.begin_range_data_index <= num_range_data_ - 1) {
+      submap.trajectory_node_indices.push_back(trajectory_node_index);
+    }
+  }
+}
+
+
 /*
 const HybridGrid& Submaps::high_resolution_matching_grid() const {
   return submaps_[matching_index()]->high_resolution_hybrid_grid;
