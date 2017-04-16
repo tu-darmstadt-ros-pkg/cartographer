@@ -75,6 +75,11 @@ const TSDF* TSDFs::Get(int index) const {
   return submaps_[index].get();
 }
 
+const chisel::ChiselPtr TSDFs::GetChiselPtr(int index) const {
+    CHECK_GE(index, 0);
+    CHECK_LT(index, size());
+    return submaps_[index]->tsdf;
+}
 
 int TSDFs::size() const { return submaps_.size(); }
 

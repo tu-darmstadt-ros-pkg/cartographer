@@ -59,6 +59,7 @@ class TSDFs : public mapping::Submaps {
   TSDFs& operator=(const TSDFs&) = delete;
 
   const TSDF* Get(int index) const override;
+  const chisel::ChiselPtr GetChiselPtr(int index) const override;
   const chisel::ProjectionIntegrator* GetIntegrator(int index) const;
   int size() const override;
 

@@ -54,6 +54,7 @@ proto::MapBuilderOptions CreateMapBuilderOptions(
       parameter_dictionary->GetNonNegativeInt("num_background_threads"));
   *options.mutable_sparse_pose_graph_options() = CreateSparsePoseGraphOptions(
       parameter_dictionary->GetDictionary("sparse_pose_graph").get());
+  options.set_use_tsdf(parameter_dictionary->GetBool("use_tsdf"));
   CHECK_NE(options.use_trajectory_builder_2d(),
            options.use_trajectory_builder_3d());
   return options;

@@ -57,6 +57,9 @@ class Submaps : public mapping::Submaps {
   Submaps& operator=(const Submaps&) = delete;
 
   const Submap* Get(int index) const override;
+
+  const chisel::ChiselPtr GetChiselPtr(int index) const override{
+      LOG(FATAL) << "Not implemented."; }
   int size() const override;
   void SubmapToProto(
       int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,

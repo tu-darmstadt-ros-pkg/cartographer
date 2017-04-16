@@ -31,6 +31,10 @@ class FakeSubmaps : public Submaps {
 
   int size() const override { LOG(FATAL) << "Not implemented."; }
 
+
+  const chisel::ChiselPtr GetChiselPtr(int index) const override{
+      LOG(FATAL) << "Not implemented."; }
+
   void SubmapToProto(int, const std::vector<mapping::TrajectoryNode>&,
                      const transform::Rigid3d&,
                      proto::SubmapQuery::Response*) const override {

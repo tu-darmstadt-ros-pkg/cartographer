@@ -28,6 +28,7 @@
 #include "cartographer/sensor/data.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "cartographer/sensor/range_data.h"
+#include "cartographer/mapping_3d/tsdfs.h"
 
 namespace cartographer {
 namespace mapping {
@@ -55,6 +56,7 @@ class TrajectoryBuilder {
   TrajectoryBuilder& operator=(const TrajectoryBuilder&) = delete;
 
   virtual const Submaps* submaps() const = 0;
+  //todo remove hacky tsdf access
   virtual const PoseEstimate& pose_estimate() const = 0;
 
   virtual void AddSensorData(const string& sensor_id,
