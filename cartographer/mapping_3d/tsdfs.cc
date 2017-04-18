@@ -203,7 +203,7 @@ void TSDFs::AddTSDF(const Eigen::Vector3f& origin) {
   projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::QuadraticTruncator(0.0, 0.0, 0.01, 16.0)));
   projection_integrator.SetWeighter(chisel::WeighterPtr(new chisel::ConstantWeighter(1)));
   projection_integrator.SetCarvingDist(0.1);
-  projection_integrator.SetCarvingEnabled(false);
+  projection_integrator.SetCarvingEnabled(true);
   projection_integrators_.emplace_back(projection_integrator);
 
   LOG(INFO) << "Added submap " << size();
