@@ -160,7 +160,14 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
 
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
+     4*coarsening_factor, &pose_observation, &summary);
+  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
+     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
+     2*coarsening_factor, &pose_observation, &summary);
+  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
+     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      coarsening_factor, &pose_observation, &summary);
+
   pose_tracker_->AddPoseObservation(
       time, pose_observation,
       options_.kalman_local_trajectory_builder_options()
@@ -176,7 +183,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   pose_observation.cast<float>())};
 
-  return InsertIntoSubmap(time, filtered_range_data, pose_observation,
+  return InsertIntoSubmap(time, range_data_in_tracking, pose_observation,
                           covariance_estimate);
 }
 
