@@ -46,7 +46,7 @@
 #include "cartographer/mapping/trajectory_connectivity.h"
 #include "cartographer/mapping_3d/sparse_pose_graph/constraint_builder.h"
 #include "cartographer/mapping_3d/sparse_pose_graph/optimization_problem.h"
-#include "cartographer/mapping_3d/submaps.h"
+#include "cartographer/mapping_3d/tsdfs.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "cartographer/transform/rigid_transform.h"
 #include "cartographer/transform/transform.h"
@@ -75,8 +75,8 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
               const sensor::RangeData& range_data_in_tracking,
               const transform::Rigid3d& pose,
               const kalman_filter::PoseCovariance& pose_covariance,
-              const Submaps* submaps, const Submap* matching_submap,
-              const std::vector<const Submap*>& insertion_submaps)
+              const TSDFs* submaps, const TSDF* matching_submap,
+              const std::vector<const TSDF*>& insertion_submaps)
       EXCLUDES(mutex_);
 
   // Adds new IMU data to be used in the optimization.
@@ -99,7 +99,7 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
 
  private:
   struct SubmapState {
-    const Submap* submap = nullptr;
+    const TSDF* submap = nullptr;
 
     // Indices of the scans that were inserted into this map together with
     // constraints for them. They are not to be matched again when this submap
@@ -113,7 +113,7 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
     bool finished = false;
 
     // The trajectory to which this SubmapState belongs.
-    const Submaps* trajectory = nullptr;
+    const TSDFs* trajectory = nullptr;
   };
 
   // Handles a new work item.
@@ -126,14 +126,14 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
   }
 
   // Grows 'submap_transforms_' to have an entry for every element of 'submaps'.
-  void GrowSubmapTransformsAsNeeded(const std::vector<const Submap*>& submaps)
+  void GrowSubmapTransformsAsNeeded(const std::vector<const TSDF*>& submaps)
       REQUIRES(mutex_);
 
   // Adds constraints for a scan, and starts scan matching in the background.
   void ComputeConstraintsForScan(
-      int scan_index, const Submap* matching_submap,
-      std::vector<const Submap*> insertion_submaps,
-      const Submap* finished_submap, const transform::Rigid3d& pose,
+      int scan_index, const TSDF* matching_submap,
+      std::vector<const TSDF*> insertion_submaps,
+      const TSDF* finished_submap, const transform::Rigid3d& pose,
       const kalman_filter::PoseCovariance& covariance) REQUIRES(mutex_);
 
   // Computes constraints for a scan and submap pair.
@@ -141,7 +141,7 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
       REQUIRES(mutex_);
 
   // Adds constraints for older scans whenever a new submap is finished.
-  void ComputeConstraintsForOldScans(const Submap* submap) REQUIRES(mutex_);
+  void ComputeConstraintsForOldScans(const TSDF* submap) REQUIRES(mutex_);
 
   // Registers the callback to run the optimization once all constraints have
   // been computed, that will also do all work that queue up in 'scan_queue_'.

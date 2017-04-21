@@ -56,7 +56,6 @@ class TrajectoryBuilder {
   TrajectoryBuilder& operator=(const TrajectoryBuilder&) = delete;
 
   virtual const Submaps* submaps() const = 0;
-  //todo remove hacky tsdf access
   virtual const PoseEstimate& pose_estimate() const = 0;
 
   virtual void AddSensorData(const string& sensor_id,

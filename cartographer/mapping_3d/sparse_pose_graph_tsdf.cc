@@ -56,7 +56,7 @@ SparsePoseGraphTSDF::~SparsePoseGraphTSDF() {
 }
 
 void SparsePoseGraphTSDF::GrowSubmapTransformsAsNeeded(
-    const std::vector<const Submap*>& submaps) {
+    const std::vector<const TSDF*>& submaps) {
   CHECK(!submaps.empty());
   CHECK_LT(submap_transforms_.size(), std::numeric_limits<int>::max());
   const int next_transform_index = submap_transforms_.size();
@@ -86,9 +86,9 @@ void SparsePoseGraphTSDF::GrowSubmapTransformsAsNeeded(
 int SparsePoseGraphTSDF::AddScan(
     common::Time time, const sensor::RangeData& range_data_in_tracking,
     const transform::Rigid3d& pose,
-    const kalman_filter::PoseCovariance& covariance, const Submaps* submaps,
-    const Submap* const matching_submap,
-    const std::vector<const Submap*>& insertion_submaps) {
+    const kalman_filter::PoseCovariance& covariance, const TSDFs* submaps,
+    const TSDF* const matching_submap,
+    const std::vector<const TSDF*>& insertion_submaps) {
   const transform::Rigid3d optimized_pose(GetLocalToGlobalTransform(*submaps) *
                                           pose);
 
@@ -112,7 +112,7 @@ int SparsePoseGraphTSDF::AddScan(
     submap_states_.back().trajectory = submaps;
     CHECK_EQ(submap_states_.size(), submap_indices_.size());
   }
-  const Submap* const finished_submap =
+  const TSDF* const finished_submap =
       insertion_submaps.front()->finished ? insertion_submaps.front() : nullptr;
 
   // Make sure we have a sampler for this trajectory.
@@ -180,7 +180,7 @@ void SparsePoseGraphTSDF::ComputeConstraint(const int scan_index,
   }
 }
 
-void SparsePoseGraphTSDF::ComputeConstraintsForOldScans(const Submap* submap) {
+void SparsePoseGraphTSDF::ComputeConstraintsForOldScans(const TSDF* submap) {
   const int submap_index = GetSubmapIndex(submap);
   const auto& node_data = optimization_problem_.node_data();
   CHECK_GT(node_data.size(), 0);
@@ -194,8 +194,8 @@ void SparsePoseGraphTSDF::ComputeConstraintsForOldScans(const Submap* submap) {
 }
 
 void SparsePoseGraphTSDF::ComputeConstraintsForScan(
-    const int scan_index, const Submap* matching_submap,
-    std::vector<const Submap*> insertion_submaps, const Submap* finished_submap,
+    const int scan_index, const TSDF* matching_submap,
+    std::vector<const TSDF*> insertion_submaps, const TSDF* finished_submap,
     const transform::Rigid3d& pose,
     const kalman_filter::PoseCovariance& covariance) {
   GrowSubmapTransformsAsNeeded(insertion_submaps);
@@ -208,7 +208,7 @@ void SparsePoseGraphTSDF::ComputeConstraintsForScan(
       trajectory_nodes_[scan_index].constant_data;
   optimization_problem_.AddTrajectoryNode(scan_data->trajectory,
                                           scan_data->time, optimized_pose);
-  for (const Submap* submap : insertion_submaps) {
+  for (const TSDF* submap : insertion_submaps) {
     const int submap_index = GetSubmapIndex(submap);
     CHECK(!submap_states_[submap_index].finished);
     submap_states_[submap_index].scan_indices.emplace(scan_index);

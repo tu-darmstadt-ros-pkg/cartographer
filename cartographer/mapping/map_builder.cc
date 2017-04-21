@@ -88,7 +88,7 @@ int MapBuilder::AddTrajectoryBuilder(
                 &sensor_collator_, trajectory_id, expected_sensor_ids,
                 common::make_unique<mapping_3d::GlobalTSDFTrajectoryBuilder>(
                     options_.trajectory_builder_3d_options(),
-                    sparse_pose_graph_3d_.get())));
+                    sparse_pose_graph_tsdf_3d_.get())));
       }
       else{
           trajectory_builders_.push_back(

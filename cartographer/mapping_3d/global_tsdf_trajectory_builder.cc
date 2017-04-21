@@ -21,9 +21,8 @@
 namespace cartographer {
 namespace mapping_3d {
 
-GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(
-    const proto::LocalTrajectoryBuilderOptions& options,
-    SparsePoseGraph* sparse_pose_graph)
+GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(const proto::LocalTrajectoryBuilderOptions& options,
+    cartographer::mapping_3d::SparsePoseGraphTSDF *sparse_pose_graph)
     : sparse_pose_graph_(sparse_pose_graph),
       local_trajectory_builder_(common::make_unique<KalmanTSDFLocalTrajectoryBuilder>(
                                     options)) {}
@@ -57,9 +56,9 @@ void GlobalTSDFTrajectoryBuilder::AddRangefinderData(
       insertion_result->time, insertion_result->range_data_in_tracking,
       insertion_result->pose_observation, insertion_result->covariance_estimate,
       insertion_result->submaps, insertion_result->matching_submap,
-      insertion_result->insertion_submaps);
-  local_trajectory_builder_->AddTrajectoryNodeIndex(trajectory_node_index);
-  */ //TODO add sparse pose graph tsdf support
+      insertion_result->insertion_submaps);*/
+  //local_trajectory_builder_->AddTrajectoryNodeIndex(trajectory_node_index);
+  //TODO add sparse pose graph tsdf support
 }
 
 void GlobalTSDFTrajectoryBuilder::AddOdometerData(const common::Time time,
