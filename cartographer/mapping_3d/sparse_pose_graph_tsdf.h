@@ -44,7 +44,7 @@
 #include "cartographer/mapping/proto/scan_matching_progress.pb.h"
 #include "cartographer/mapping/sparse_pose_graph.h"
 #include "cartographer/mapping/trajectory_connectivity.h"
-#include "cartographer/mapping_3d/sparse_pose_graph/constraint_builder.h"
+#include "cartographer/mapping_3d/sparse_pose_graph/constraint_builder_tsdf.h"
 #include "cartographer/mapping_3d/sparse_pose_graph/optimization_problem.h"
 #include "cartographer/mapping_3d/tsdfs.h"
 #include "cartographer/sensor/point_cloud.h"
@@ -184,7 +184,7 @@ class SparsePoseGraphTSDF : public mapping::SparsePoseGraph {
 
   // Current optimization problem.
   sparse_pose_graph::OptimizationProblem optimization_problem_;
-  sparse_pose_graph::ConstraintBuilder constraint_builder_ GUARDED_BY(mutex_);
+  sparse_pose_graph::ConstraintBuilderTSDF constraint_builder_ GUARDED_BY(mutex_);
   std::vector<Constraint> constraints_;
   std::vector<transform::Rigid3d> submap_transforms_;  // (map <- submap)
 

@@ -37,7 +37,7 @@ namespace scan_matching {
 
 class InterpolatedTSDF {
  public:
-  explicit InterpolatedTSDF(const chisel::ChiselPtr tsdf)
+  explicit InterpolatedTSDF(const chisel::ChiselConstPtr tsdf)
       : tsdf_(tsdf) {}
 
   InterpolatedTSDF(const InterpolatedTSDF&) = delete;
@@ -108,7 +108,7 @@ class InterpolatedTSDF {
            q1;
   }
 
-  const chisel::ChiselPtr getTSDF() const {
+  chisel::ChiselConstPtr getTSDF() const {
       return tsdf_;
   }
 
@@ -162,7 +162,7 @@ class InterpolatedTSDF {
       return q;
   }
 
-  const chisel::ChiselPtr tsdf_;
+  chisel::ChiselConstPtr tsdf_;
 };
 
 }  // namespace scan_matching

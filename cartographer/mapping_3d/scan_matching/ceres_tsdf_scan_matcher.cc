@@ -111,7 +111,7 @@ void CeresTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
     CHECK_GT(options_.occupied_space_weight(i), 0.);
     const sensor::PointCloud& point_cloud =
         *point_clouds_and_tsdfs[i].first;
-    const chisel::ChiselPtr tsdf = point_clouds_and_tsdfs[i].second;
+    chisel::ChiselConstPtr tsdf = point_clouds_and_tsdfs[i].second;
     problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<TSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(

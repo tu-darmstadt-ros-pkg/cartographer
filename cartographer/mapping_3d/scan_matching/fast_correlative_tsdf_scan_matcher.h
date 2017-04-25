@@ -17,8 +17,8 @@
 // This is an implementation of a 3D branch-and-bound algorithm similar to
 // mapping_2d::FastCorrelativeScanMatcher.
 
-#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_SCAN_MATCHER_H_
-#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_SCAN_MATCHER_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_TSDF_SCAN_MATCHER_H_
+#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_TSDF_SCAN_MATCHER_H_
 
 #include <memory>
 #include <vector>
@@ -27,11 +27,11 @@
 #include "cartographer/common/port.h"
 #include "cartographer/mapping/trajectory_node.h"
 #include "cartographer/mapping_2d/scan_matching/fast_correlative_scan_matcher.h"
-#include "cartographer/mapping_3d/hybrid_grid.h"
 #include "cartographer/mapping_3d/scan_matching/proto/fast_correlative_scan_matcher_options.pb.h"
 #include "cartographer/mapping_3d/scan_matching/rotational_scan_matcher.h"
 #include "cartographer/mapping_3d/scan_matching/candidate.h"
 #include "cartographer/sensor/point_cloud.h"
+#include <open_chisel/Chisel.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -43,16 +43,18 @@ CreateFastCorrelativeScanMatcherOptions(
 
 class PrecomputationGridStack;
 
-class FastCorrelativeScanMatcher {
+
+
+class FastCorrelativeTSDFScanMatcher {
  public:
-  FastCorrelativeScanMatcher(
-      const HybridGrid& hybrid_grid,
+  FastCorrelativeTSDFScanMatcher(
+      chisel::ChiselConstPtr hybrid_grid,
       const std::vector<mapping::TrajectoryNode>& nodes,
       const proto::FastCorrelativeScanMatcherOptions& options);
-  ~FastCorrelativeScanMatcher();
+  ~FastCorrelativeTSDFScanMatcher();
 
-  FastCorrelativeScanMatcher(const FastCorrelativeScanMatcher&) = delete;
-  FastCorrelativeScanMatcher& operator=(const FastCorrelativeScanMatcher&) =
+  FastCorrelativeTSDFScanMatcher(const FastCorrelativeTSDFScanMatcher&) = delete;
+  FastCorrelativeTSDFScanMatcher& operator=(const FastCorrelativeTSDFScanMatcher&) =
       delete;
 
   // Aligns 'coarse_point_cloud' within the 'hybrid_grid' given an
@@ -122,4 +124,4 @@ class FastCorrelativeScanMatcher {
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_SCAN_MATCHER_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_FAST_CORRELATIVE_TSDF_SCAN_MATCHER_H_

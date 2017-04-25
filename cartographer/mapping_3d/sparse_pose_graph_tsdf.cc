@@ -259,7 +259,7 @@ void SparsePoseGraphTSDF::ComputeConstraintsForScan(
 
 void SparsePoseGraphTSDF::HandleScanQueue() {
   constraint_builder_.WhenDone(
-      [this](const sparse_pose_graph::ConstraintBuilder::Result& result) {
+      [this](const sparse_pose_graph::ConstraintBuilderTSDF::Result& result) {
         constraints_.insert(constraints_.end(), result.begin(), result.end());
         RunOptimization();
 
@@ -304,7 +304,7 @@ void SparsePoseGraphTSDF::WaitForAllComputations() {
   std::cout << "\r\x1b[KOptimizing: Done.     " << std::endl;
   constraint_builder_.WhenDone(
       [this, &notification](
-          const sparse_pose_graph::ConstraintBuilder::Result& result) {
+          const sparse_pose_graph::ConstraintBuilderTSDF::Result& result) {
         constraints_.insert(constraints_.end(), result.begin(), result.end());
         common::MutexLocker locker(&mutex_);
         notification = true;

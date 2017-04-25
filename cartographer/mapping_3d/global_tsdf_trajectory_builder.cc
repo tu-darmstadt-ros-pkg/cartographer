@@ -51,14 +51,13 @@ void GlobalTSDFTrajectoryBuilder::AddRangefinderData(
   if (insertion_result == nullptr) {
     return;
   }
-/*
+
   const int trajectory_node_index = sparse_pose_graph_->AddScan(
       insertion_result->time, insertion_result->range_data_in_tracking,
       insertion_result->pose_observation, insertion_result->covariance_estimate,
       insertion_result->submaps, insertion_result->matching_submap,
-      insertion_result->insertion_submaps);*/
-  //local_trajectory_builder_->AddTrajectoryNodeIndex(trajectory_node_index);
-  //TODO add sparse pose graph tsdf support
+      insertion_result->insertion_submaps);
+  local_trajectory_builder_->AddTrajectoryNodeIndex(trajectory_node_index);
 }
 
 void GlobalTSDFTrajectoryBuilder::AddOdometerData(const common::Time time,

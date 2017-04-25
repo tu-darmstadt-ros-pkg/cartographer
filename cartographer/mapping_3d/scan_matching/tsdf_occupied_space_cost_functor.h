@@ -39,7 +39,7 @@ class TSDFOccupiedSpaceCostFunctor {
   // add to all poses, and point cloud.
   TSDFOccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
-                           const chisel::ChiselPtr tsdf,
+                           chisel::ChiselConstPtr tsdf,
                            int coarsening_factor)
       : scaling_factor_(scaling_factor),
         coarsening_factor_(coarsening_factor),
