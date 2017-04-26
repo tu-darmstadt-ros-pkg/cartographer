@@ -14,6 +14,12 @@ struct DiscreteScan {
   std::vector<std::vector<Eigen::Array3i>> cell_indices_per_depth;
 };
 
+struct ContinuousScan {
+  transform::Rigid3f pose;
+  // Contains a vector of discretized scans for each 'depth'.
+  std::vector<std::vector<Eigen::Array3f>> transformed_points_per_depth;
+};
+
 struct Candidate {
   Candidate(const int scan_index, const Eigen::Array3i& offset)
       : scan_index(scan_index), offset(offset) {}
