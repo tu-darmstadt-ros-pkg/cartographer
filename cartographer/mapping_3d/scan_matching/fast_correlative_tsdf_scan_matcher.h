@@ -38,7 +38,7 @@ namespace mapping_3d {
 namespace scan_matching {
 
 proto::FastCorrelativeScanMatcherOptions
-CreateFastCorrelativeScanMatcherOptions(
+CreateFastCorrelativeScanTSDFMatcherOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
 class PrecomputationGridStack;
@@ -91,10 +91,10 @@ class FastCorrelativeTSDFScanMatcher {
       const sensor::PointCloud& coarse_point_cloud,
       const sensor::PointCloud& fine_point_cloud, float min_score, float* score,
       transform::Rigid3d* pose_estimate) const;
-  DiscreteScan DiscretizeScan(const SearchParameters& search_parameters,
+  ContinuousScan DiscretizeScan(const SearchParameters& search_parameters,
                               const sensor::PointCloud& point_cloud,
                               const transform::Rigid3f& pose) const;
-  std::vector<DiscreteScan> GenerateDiscreteScans(
+  std::vector<ContinuousScan> GenerateDiscreteScans(
       const SearchParameters& search_parameters,
       const sensor::PointCloud& coarse_point_cloud,
       const sensor::PointCloud& fine_point_cloud,
@@ -102,13 +102,12 @@ class FastCorrelativeTSDFScanMatcher {
   std::vector<Candidate> GenerateLowestResolutionCandidates(
       const SearchParameters& search_parameters, int num_discrete_scans) const;
   void ScoreCandidates(int depth,
-                       const std::vector<DiscreteScan>& discrete_scans,
+                       const std::vector<ContinuousScan>& discrete_scans,
                        std::vector<Candidate>* const candidates) const;
-  std::vector<Candidate> ComputeLowestResolutionCandidates(
-      const SearchParameters& search_parameters,
-      const std::vector<DiscreteScan>& discrete_scans) const;
+  std::vector<Candidate> ComputeLowestResolutionCandidates(const SearchParameters& search_parameters,
+      const std::vector<ContinuousScan> &discrete_scans) const;
   Candidate BranchAndBound(const SearchParameters& search_parameters,
-                           const std::vector<DiscreteScan>& discrete_scans,
+                           const std::vector<ContinuousScan>& discrete_scans,
                            const std::vector<Candidate>& candidates,
                            int candidate_depth, float min_score) const;
 
