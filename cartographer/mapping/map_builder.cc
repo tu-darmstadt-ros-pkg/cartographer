@@ -70,9 +70,16 @@ MapBuilder::MapBuilder(
     sparse_pose_graph_ = sparse_pose_graph_2d_.get();
   }
   if (options.use_trajectory_builder_3d()) {
-    sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
-        options_.sparse_pose_graph_options(), &thread_pool_, constant_data);
-    sparse_pose_graph_ = sparse_pose_graph_3d_.get();
+      if(options_.use_tsdf()){
+          sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphTSDF>(
+              options_.sparse_pose_graph_options(), &thread_pool_, constant_data);
+          sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
+      }
+      else{
+        sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
+            options_.sparse_pose_graph_options(), &thread_pool_, constant_data);
+        sparse_pose_graph_ = sparse_pose_graph_3d_.get();
+      }
   }
 }
 
