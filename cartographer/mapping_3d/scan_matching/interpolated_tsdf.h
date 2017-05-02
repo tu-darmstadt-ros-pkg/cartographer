@@ -37,7 +37,7 @@ namespace scan_matching {
 
 class InterpolatedTSDF {
  public:
-  explicit InterpolatedTSDF(const chisel::ChiselConstPtr tsdf)
+  explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::DistVoxel> tsdf)
       : tsdf_(tsdf) {}
 
   InterpolatedTSDF(const InterpolatedTSDF&) = delete;
@@ -57,15 +57,15 @@ class InterpolatedTSDF {
     double x1, y1, z1, x2, y2, z2;
     ComputeInterpolationDataPoints(x, y, z, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
 
-    const chisel::ChunkManager& chunk_manager = tsdf_->GetChunkManager();
-    const chisel::DistVoxel* v111 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x1,y1,z1), coarsening_factor);
-    const chisel::DistVoxel* v112 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x1,y1,z2), coarsening_factor);
-    const chisel::DistVoxel* v121 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x1,y2,z1), coarsening_factor);
-    const chisel::DistVoxel* v122 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x1,y2,z2), coarsening_factor);
-    const chisel::DistVoxel* v211 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x2,y1,z1), coarsening_factor);
-    const chisel::DistVoxel* v212 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x2,y1,z2), coarsening_factor);
-    const chisel::DistVoxel* v221 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x2,y2,z1), coarsening_factor);
-    const chisel::DistVoxel* v222 = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x2,y2,z2), coarsening_factor);
+    const auto& chunk_manager = tsdf_->GetChunkManager();
+    const chisel::DistVoxel* v111 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z1), coarsening_factor);
+    const chisel::DistVoxel* v112 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z2), coarsening_factor);
+    const chisel::DistVoxel* v121 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z1), coarsening_factor);
+    const chisel::DistVoxel* v122 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z2), coarsening_factor);
+    const chisel::DistVoxel* v211 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z1), coarsening_factor);
+    const chisel::DistVoxel* v212 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z2), coarsening_factor);
+    const chisel::DistVoxel* v221 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z1), coarsening_factor);
+    const chisel::DistVoxel* v222 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z2), coarsening_factor);
 
     const double q111 = getVoxelSDF(v111);
     const double q112 = getVoxelSDF(v112);
@@ -108,7 +108,7 @@ class InterpolatedTSDF {
            q1;
   }
 
-  chisel::ChiselConstPtr getTSDF() const {
+  chisel::ChiselConstPtr<chisel::DistVoxel> getTSDF() const {
       return tsdf_;
   }
 
@@ -119,7 +119,7 @@ class InterpolatedTSDF {
                                       double* x2, double* y2,
                                       double* z2, int coarsening_factor) const {
     const Eigen::Vector3f lower = CenterOfLowerVoxel(x, y, z, coarsening_factor);
-    const chisel::ChunkManager& chunk_manager = tsdf_->GetChunkManager();
+    const auto& chunk_manager = tsdf_->GetChunkManager();
     const float resolution = chunk_manager.GetResolution()*coarsening_factor;
     *x1 = lower.x();
     *y1 = lower.y();
@@ -134,7 +134,7 @@ class InterpolatedTSDF {
   // corresponding center is at most the given coordinate.
   Eigen::Vector3f CenterOfLowerVoxel(const double x, const double y,
                                      const double z, int coarsening_factor) const {
-      const chisel::ChunkManager& chunk_manager = tsdf_->GetChunkManager();
+      const auto& chunk_manager = tsdf_->GetChunkManager();
       const float round = 1/(chunk_manager.GetResolution()*coarsening_factor);
       const float x_0 = static_cast<float>(std::floor(x * round))/round;
       const float y_0 = static_cast<float>(std::floor(y * round))/round;
@@ -162,7 +162,7 @@ class InterpolatedTSDF {
       return q;
   }
 
-  chisel::ChiselConstPtr tsdf_;
+  chisel::ChiselConstPtr<chisel::DistVoxel> tsdf_;
 };
 
 }  // namespace scan_matching

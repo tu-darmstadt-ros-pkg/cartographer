@@ -18,7 +18,7 @@
 
 #include <cmath>
 #include <limits>
-#include <open_chisel/truncation/QuadraticTruncator.h>
+#include <open_chisel/truncation/ConstantTruncator.h>
 #include <open_chisel/weighting/ConstantWeighter.h>
 #include "cartographer/common/math.h"
 #include "cartographer/sensor/range_data.h"
@@ -50,7 +50,7 @@ proto::SubmapsOptions CreateSubmapsOptions(
 TSDF::TSDF(const float high_resolution, const float low_resolution,
                const Eigen::Vector3f& origin, const int begin_range_data_index)
     : mapping::Submap(origin, begin_range_data_index) {
-    tsdf.reset(new chisel::Chisel(Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
+    tsdf.reset(new chisel::Chisel<chisel::DistVoxel>(Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
     //todo load params from config
 }
 
@@ -75,7 +75,7 @@ const TSDF* TSDFs::Get(int index) const {
   return submaps_[index].get();
 }
 
-const chisel::ChiselPtr TSDFs::GetChiselPtr(int index) const {
+const chisel::ChiselPtr<chisel::DistVoxel> TSDFs::GetChiselPtr(int index) const {
     CHECK_GE(index, 0);
     CHECK_LT(index, size());
     return submaps_[index]->tsdf;
@@ -140,7 +140,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     //std::vector<int> insertion_indices = insertion_indices();
     for(int insertion_index : insertion_indices())
     {
-        chisel::ChiselPtr chisel_tsdf = submaps_[insertion_index]->tsdf;
+        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
@@ -200,7 +200,7 @@ void TSDFs::AddTSDF(const Eigen::Vector3f& origin) {
                                    num_range_data_));
   chisel::ProjectionIntegrator projection_integrator;
   projection_integrator.SetCentroids(submaps_[size()-1]->tsdf->GetChunkManager().GetCentroids());
-  projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::QuadraticTruncator(0.0, 0.0, 0.01, 16.0)));
+  projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(0.01, 16.0)));
   projection_integrator.SetWeighter(chisel::WeighterPtr(new chisel::ConstantWeighter(1)));
   projection_integrator.SetCarvingDist(0.1);
   projection_integrator.SetCarvingEnabled(true);

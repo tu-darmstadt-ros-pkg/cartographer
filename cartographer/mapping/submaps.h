@@ -122,7 +122,7 @@ class Submaps {
       return dummy_ptr;
   }*/
 
-  virtual const chisel::ChiselPtr GetChiselPtr(int index) const = 0;
+  virtual const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const = 0;
 
   // Returns the number of Submaps.
   virtual int size() const = 0;

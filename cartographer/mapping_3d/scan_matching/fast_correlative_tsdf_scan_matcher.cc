@@ -58,7 +58,7 @@ CreateFastTSDFCorrelativeScanMatcherOptions(
 class PrecomputationGridStack {
  public:
   PrecomputationGridStack(
-      chisel::ChiselConstPtr hybrid_grid,
+      chisel::ChiselConstPtr<chisel::DistVoxel> hybrid_grid,
       const proto::FastCorrelativeScanMatcherOptions& options) {
     CHECK_GE(options.branch_and_bound_depth(), 1);
     CHECK_GE(options.full_resolution_depth(), 1);
@@ -71,22 +71,22 @@ class PrecomputationGridStack {
     }
   }
 
-  chisel::ChiselConstPtr Get(int depth) const {
+  chisel::ChiselConstPtr<chisel::DistVoxel> Get(int depth) const {
     return precomputation_grids_.at(depth);
   }
 
   int max_depth() const { return precomputation_grids_.size() - 1; }
 
  private:
-  std::vector<chisel::ChiselConstPtr> precomputation_grids_;
+  std::vector<chisel::ChiselConstPtr<chisel::DistVoxel>> precomputation_grids_;
 };
 
-FastCorrelativeTSDFScanMatcher::FastCorrelativeTSDFScanMatcher(chisel::ChiselConstPtr hybrid_grid,
+FastCorrelativeTSDFScanMatcher::FastCorrelativeTSDFScanMatcher(chisel::ChiselConstPtr<chisel::DistVoxel> hybrid_grid,
     const std::vector<mapping::TrajectoryNode>& nodes,
     const proto::FastCorrelativeScanMatcherOptions& options)
     : options_(options),
       resolution_(hybrid_grid->GetChunkManager().GetResolution()),
-      origin_(hybrid_grid->GetChunkManager().GetMapOffset()),
+      origin_(hybrid_grid->GetChunkManager().GetOrigin()),
       width_in_voxels_(1000), //todo(kdaun) compute
       precomputation_grid_stack_(
           common::make_unique<PrecomputationGridStack>(hybrid_grid, options)),
@@ -167,7 +167,7 @@ ContinuousScan FastCorrelativeTSDFScanMatcher::DiscretizeScan(
     const sensor::PointCloud& point_cloud,
     const transform::Rigid3f& pose) const {
   std::vector<std::vector<Eigen::Array3f>> transformed_points_per_depth;
-  chisel::ChiselConstPtr original_grid = precomputation_grid_stack_->Get(0);
+  chisel::ChiselConstPtr<chisel::DistVoxel> original_grid = precomputation_grid_stack_->Get(0);
   std::vector<Eigen::Array3f> full_resolution_transformed_points;
   for (const Eigen::Vector3f& point :
        sensor::TransformPointCloud(point_cloud, pose)) {
@@ -302,8 +302,8 @@ void FastCorrelativeTSDFScanMatcher::ScoreCandidates(
     for (const Eigen::Array3f& point :
          discrete_scan.transformed_points_per_depth[depth]) {
       const Eigen::Array3f proposed_point = point + offset.cast<float>()*resolution_;
-      chisel::ChiselConstPtr tsdf = precomputation_grid_stack_->Get(depth);
-      const chisel::ChunkManager& chunk_manager = tsdf->GetChunkManager();
+      chisel::ChiselConstPtr<chisel::DistVoxel> tsdf = precomputation_grid_stack_->Get(depth);
+      const auto& chunk_manager = tsdf->GetChunkManager();
       const chisel::DistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(proposed_point));
 
       double q = 0.5; //todo(kdaun) how to set value outside of tsdf

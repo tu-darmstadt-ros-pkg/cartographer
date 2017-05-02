@@ -37,7 +37,7 @@ proto::CeresScanMatcherOptions CreateCeresTSDFScanMatcherOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
 using PointCloudAndTSDFPointers =
-    std::pair<const sensor::PointCloud*, const chisel::ChiselConstPtr>;
+    std::pair<const sensor::PointCloud*, const chisel::ChiselConstPtr<chisel::DistVoxel>>;
 
 // This scan matcher uses Ceres to align scans with an existing map.
 class CeresTSDFScanMatcher {

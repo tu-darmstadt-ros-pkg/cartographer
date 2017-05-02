@@ -48,7 +48,7 @@ class PrecomputationGridStack;
 class FastCorrelativeTSDFScanMatcher {
  public:
   FastCorrelativeTSDFScanMatcher(
-      chisel::ChiselConstPtr hybrid_grid,
+      chisel::ChiselConstPtr<chisel::DistVoxel> hybrid_grid,
       const std::vector<mapping::TrajectoryNode>& nodes,
       const proto::FastCorrelativeScanMatcherOptions& options);
   ~FastCorrelativeTSDFScanMatcher();
