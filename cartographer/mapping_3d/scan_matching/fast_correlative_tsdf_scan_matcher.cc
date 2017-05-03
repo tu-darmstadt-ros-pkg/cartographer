@@ -153,16 +153,19 @@ bool FastCorrelativeTSDFScanMatcher::MatchWithSearchParameters(
   CHECK_NOTNULL(pose_estimate);
 
   const std::vector<ContinuousScan> discrete_scans = GenerateDiscreteScans(
-      search_parameters, coarse_point_cloud, fine_point_cloud,
+              search_parameters, coarse_point_cloud, fine_point_cloud,
       initial_pose_estimate.cast<float>());
 
   const std::vector<Candidate> lowest_resolution_candidates =
       ComputeLowestResolutionCandidates(search_parameters, discrete_scans);
+  LOG(INFO) << "Num candidates " << lowest_resolution_candidates.size();
 
   const Candidate best_candidate = BranchAndBound(
       search_parameters, discrete_scans, lowest_resolution_candidates,
       precomputation_grid_stack_->max_depth(), min_score);
-  if (best_candidate.score > min_score) {
+
+  LOG(INFO) << "New score: " << best_candidate.score;
+  if (best_candidate.score < min_score) {
     *score = best_candidate.score;
     *pose_estimate =
         (transform::Rigid3f(
@@ -306,7 +309,7 @@ void FastCorrelativeTSDFScanMatcher::ScoreCandidates(
   const int reduction_exponent =
       std::max(0, depth - options_.full_resolution_depth() + 1);
   for (Candidate& candidate : *candidates) {
-    int sum = 0;
+    float sum = 0;
     const ContinuousScan& discrete_scan = discrete_scans[candidate.scan_index];
     const Eigen::Array3i offset(candidate.offset[0] >> reduction_exponent,
                                 candidate.offset[1] >> reduction_exponent,
@@ -315,23 +318,22 @@ void FastCorrelativeTSDFScanMatcher::ScoreCandidates(
     for (const Eigen::Array3f& point :
          discrete_scan.transformed_points_per_depth[depth]) {
       const Eigen::Array3f proposed_point = point + offset.cast<float>()*resolution_;
-      chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf = precomputation_grid_stack_->Get(depth);
+      chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf = precomputation_grid_stack_->Get(0);
       const auto& chunk_manager = tsdf->GetChunkManager();
       const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(proposed_point));
 
       double q = 0.5; //todo(kdaun) how to set value outside of tsdf
       if(voxel) {
         if(voxel->IsValid()) {
-            q = voxel->GetSDF();
+            q = std::abs(voxel->GetExpandedSDF(depth));
         }
       }
-
       sum += q*q;
     }
     candidate.score = sum /
         static_cast<float>(discrete_scan.transformed_points_per_depth[depth].size());
   }
-  std::sort(candidates->begin(), candidates->end(), std::greater<Candidate>());
+  std::sort(candidates->begin(), candidates->end(), std::less<Candidate>());
 }
 
 std::vector<Candidate>
@@ -350,17 +352,16 @@ Candidate FastCorrelativeTSDFScanMatcher::BranchAndBound(
     const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
     const std::vector<ContinuousScan>& discrete_scans,
     const std::vector<Candidate>& candidates, const int candidate_depth,
-    float min_score) const {
+    float max_score) const {
   if (candidate_depth == 0) {
     // Return the best candidate.
     return *candidates.begin();
   }
 
   Candidate best_high_resolution_candidate(0, Eigen::Array3i::Zero());
-  best_high_resolution_candidate.score = min_score;
-  //todo(kdaun) we are looking for the max score now
+  best_high_resolution_candidate.score = max_score;
   for (const Candidate& candidate : candidates) {
-    if (candidate.score <= min_score) {
+    if (candidate.score >= max_score) {
       break;
     }
     std::vector<Candidate> higher_resolution_candidates;
@@ -387,7 +388,7 @@ Candidate FastCorrelativeTSDFScanMatcher::BranchAndBound(
     }
     ScoreCandidates(candidate_depth - 1, discrete_scans,
                     &higher_resolution_candidates);
-    best_high_resolution_candidate = std::max(
+    best_high_resolution_candidate = std::min(
         best_high_resolution_candidate,
         BranchAndBound(search_parameters, discrete_scans,
                        higher_resolution_candidates, candidate_depth - 1,

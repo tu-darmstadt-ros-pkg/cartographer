@@ -219,14 +219,14 @@ void ConstraintBuilderTSDF::ComputeConstraint(
   // - the initial guess 'initial_pose' for (map <- j),
   // - the result 'pose_estimate' of Match() (map <- j).
   // - the submap->pose() (map <- i)
-  float score = 0.;
+  float score = options_.min_score();
   transform::Rigid3d pose_estimate = transform::Rigid3d::Identity();
 
   if (match_full_submap) {
     if (submap_scan_matcher->fast_correlative_scan_matcher->MatchFullSubmap(
             initial_pose.rotation(), filtered_point_cloud, point_cloud,
             options_.global_localization_min_score(), &score, &pose_estimate)) {
-      CHECK_GT(score, options_.global_localization_min_score());
+      CHECK_LE(score, options_.global_localization_min_score());
       trajectory_connectivity->Connect(scan_trajectory, submap_trajectory);
     } else {
       return;
@@ -236,7 +236,7 @@ void ConstraintBuilderTSDF::ComputeConstraint(
             initial_pose, filtered_point_cloud, point_cloud,
             options_.min_score(), &score, &pose_estimate)) {
       // We've reported a successful local match.
-      CHECK_GT(score, options_.min_score());
+      CHECK_LE(score, options_.min_score());
     } else {
       return;
     }
