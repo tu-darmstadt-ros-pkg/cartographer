@@ -64,7 +64,7 @@ class Submaps : public mapping::Submaps {
   Submaps& operator=(const Submaps&) = delete;
 
   const Submap* Get(int index) const override;
-  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override{
+  const chisel::ChiselPtr<chisel::MultiDistVoxel> GetChiselPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
 
   int size() const override;

@@ -50,8 +50,8 @@ proto::SubmapsOptions CreateSubmapsOptions(
 TSDF::TSDF(const float high_resolution, const float low_resolution,
                const Eigen::Vector3f& origin, const int begin_range_data_index)
     : mapping::Submap(origin, begin_range_data_index) {
-    tsdf.reset(new chisel::Chisel<chisel::DistVoxel>(Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
-    //todo load params from config
+    tsdf.reset(new chisel::Chisel<chisel::MultiDistVoxel>(Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
+    //todo(kdaun) load params from config
 }
 
 TSDFs::TSDFs()
@@ -75,7 +75,7 @@ const TSDF* TSDFs::Get(int index) const {
   return submaps_[index].get();
 }
 
-const chisel::ChiselPtr<chisel::DistVoxel> TSDFs::GetChiselPtr(int index) const {
+const chisel::ChiselPtr<chisel::MultiDistVoxel> TSDFs::GetChiselPtr(int index) const {
     CHECK_GE(index, 0);
     CHECK_LT(index, size());
     return submaps_[index]->tsdf;
@@ -140,7 +140,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     //std::vector<int> insertion_indices = insertion_indices();
     for(int insertion_index : insertion_indices())
     {
-        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
+        chisel::ChiselPtr<chisel::MultiDistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();

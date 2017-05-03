@@ -43,7 +43,7 @@ struct TSDF : public mapping::Submap {
   TSDF(float high_resolution, float low_resolution,
          const Eigen::Vector3f& origin, int begin_range_data_index);
 
-  chisel::ChiselPtr<chisel::DistVoxel> tsdf;
+  chisel::ChiselPtr<chisel::MultiDistVoxel> tsdf;
   bool finished = false;
   std::vector<int> trajectory_node_indices;
 };
@@ -59,7 +59,7 @@ class TSDFs : public mapping::Submaps {
   TSDFs& operator=(const TSDFs&) = delete;
 
   const TSDF* Get(int index) const override;
-  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override;
+  const chisel::ChiselPtr<chisel::MultiDistVoxel> GetChiselPtr(int index) const override;
   const chisel::ProjectionIntegrator* GetIntegrator(int index) const;
   int size() const override;
 
