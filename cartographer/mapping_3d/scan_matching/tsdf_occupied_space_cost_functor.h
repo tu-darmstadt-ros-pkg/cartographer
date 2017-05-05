@@ -67,7 +67,7 @@ class TSDFOccupiedSpaceCostFunctor {
           transform * point_cloud_[i].cast<T>();
 
       const T sdf =interpolated_grid_.GetSDF(world[0], world[1], world[2], coarsening_factor_);
-      residual[i] = scaling_factor_ * (sdf*sdf) * 10.0;
+      residual[i] = scaling_factor_ * sdf;
     }
     return true;
   }
