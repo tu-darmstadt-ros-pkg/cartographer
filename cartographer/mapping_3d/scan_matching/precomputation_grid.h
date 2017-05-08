@@ -18,6 +18,9 @@
 #define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_PRECOMPUTATION_GRID_H_
 
 #include "cartographer/mapping_3d/hybrid_grid.h"
+#include <open_chisel/Chisel.h>
+#include <open_chisel/MultiDistVoxel.h>
+
 
 namespace cartographer {
 namespace mapping_3d {
@@ -39,6 +42,7 @@ class PrecomputationGrid : public HybridGridBase<uint8> {
 // Converts a HybridGrid to a PrecomputationGrid representing the same data,
 // but only using 8 bit instead of 2 x 16 bit.
 PrecomputationGrid ConvertToPrecomputationGrid(const HybridGrid& hybrid_grid);
+PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid);
 
 // Returns a grid of the same resolution containing the maximum value of
 // original voxels in 'grid'. This maximum is over the 8 voxels that have

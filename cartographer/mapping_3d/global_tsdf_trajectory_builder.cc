@@ -22,7 +22,7 @@ namespace cartographer {
 namespace mapping_3d {
 
 GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(const proto::LocalTrajectoryBuilderOptions& options,
-    cartographer::mapping_3d::SparsePoseGraphTSDF *sparse_pose_graph)
+    cartographer::mapping_3d::SparsePoseGraphConversion *sparse_pose_graph)
     : sparse_pose_graph_(sparse_pose_graph),
       local_trajectory_builder_(common::make_unique<KalmanTSDFLocalTrajectoryBuilder>(
                                     options)) {}

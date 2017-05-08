@@ -37,6 +37,7 @@
 #include "cartographer/mapping_2d/sparse_pose_graph.h"
 #include "cartographer/mapping_3d/sparse_pose_graph.h"
 #include "cartographer/mapping_3d/sparse_pose_graph_tsdf.h"
+#include "cartographer/mapping_3d/sparse_pose_graph_conversion.h"
 #include "cartographer/sensor/collator.h"
 
 namespace cartographer {
@@ -95,7 +96,7 @@ class MapBuilder {
 
   std::unique_ptr<mapping_2d::SparsePoseGraph> sparse_pose_graph_2d_;
   std::unique_ptr<mapping_3d::SparsePoseGraph> sparse_pose_graph_3d_;
-  std::unique_ptr<mapping_3d::SparsePoseGraphTSDF> sparse_pose_graph_tsdf_3d_;
+  std::unique_ptr<mapping_3d::SparsePoseGraphConversion> sparse_pose_graph_tsdf_3d_;
   mapping::SparsePoseGraph* sparse_pose_graph_;
 
   sensor::Collator sensor_collator_;

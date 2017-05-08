@@ -22,6 +22,8 @@
 #include "cartographer/common/math.h"
 #include "cartographer/mapping/probability_values.h"
 #include "glog/logging.h"
+#include <open_chisel/Chisel.h>
+#include <open_chisel/MultiDistVoxel.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -46,6 +48,59 @@ Eigen::Array3i CellIndexAtHalfResolution(const Eigen::Array3i& cell_index) {
 }
 
 }  // namespace
+
+PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid) {
+  PrecomputationGrid result(hybrid_grid->GetChunkManager().GetResolution(), hybrid_grid->GetChunkManager().GetOrigin());
+ /* for (auto it = HybridGrid::Iterator(hybrid_grid); !it.Done(); it.Next()) {
+    const int cell_value = common::RoundToInt(
+        (mapping::ValueToProbability(it.GetValue()) -
+         mapping::kMinProbability) *
+        (255.f / (mapping::kMaxProbability - mapping::kMinProbability)));
+    CHECK_GE(cell_value, 0);
+    CHECK_LE(cell_value, 255);
+    *result.mutable_value(it.GetCellIndex()) = cell_value;
+  }*/ //todo(kdaun) implement iterator and conversion for tsdf
+  const chisel::AABB& bounding_box = hybrid_grid->GetChunkManager().GetBoundingBox();
+  const chisel::Vec3& min = bounding_box.min;
+  const chisel::Vec3& max = bounding_box.max;
+  Eigen::Array3f origin = hybrid_grid->GetChunkManager().GetOrigin();
+  float resolution = hybrid_grid->GetChunkManager().GetResolution();
+  float min_sdf = 0.f;
+  float max_sdf = 0.5f;
+  //float max_extension = std::max(std::max(max.x() - min.x(), max.y() - min.y()), max.z() - min.z());
+  //int bits = common::RoundToInt(std::log2(max_extension/min_sdf));
+
+  for(float x = min.x(); x < max.x(); x = x + resolution)
+  {
+      for(float y = min.y(); y < max.y(); y = y + resolution)
+      {
+          for(float z = min.z(); z < max.z(); z = z + resolution)
+          {
+              const auto& chunk_manager = hybrid_grid->GetChunkManager();
+              const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
+              if(voxel) {
+                if(voxel->IsValid()) {
+                    const float sdf = std::abs(voxel->GetSDF());
+                    const int cell_value = 255 - common::RoundToInt(sdf - min_sdf) *
+                        (255.f / (max_sdf - min_sdf));
+                    Eigen::Array3f point;
+                    point.x() = x;
+                    point.y() = y;
+                    point.z() = z;
+                    Eigen::Array3f index_float = (point - origin).array() / resolution;
+                    Eigen::Array3i index_int(common::RoundToInt(index_float.x()),
+                                          common::RoundToInt(index_float.y()),
+                                          common::RoundToInt(index_float.z()));
+                    *result.mutable_value(index_int) = cell_value;
+                }
+              }
+          }
+      }
+  }
+
+
+  return result;
+}
 
 PrecomputationGrid ConvertToPrecomputationGrid(const HybridGrid& hybrid_grid) {
   PrecomputationGrid result(hybrid_grid.resolution(), hybrid_grid.origin());

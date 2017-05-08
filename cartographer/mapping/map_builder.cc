@@ -71,7 +71,7 @@ MapBuilder::MapBuilder(
   }
   if (options.use_trajectory_builder_3d()) {
       if(options_.use_tsdf()){
-          sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphTSDF>(
+          sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphConversion>(
               options_.sparse_pose_graph_options(), &thread_pool_, constant_data);
           sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
       }

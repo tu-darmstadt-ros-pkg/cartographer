@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cartographer/mapping_3d/scan_matching/fast_correlative_tsdf_scan_matcher.h"
+#include "cartographer/mapping_3d/scan_matching/fast_correlative_conversion_scan_matcher.h"
 
 #include <algorithm>
 #include <cmath>
@@ -28,16 +28,13 @@
 #include "cartographer/mapping_3d/scan_matching/proto/fast_correlative_scan_matcher_options.pb.h"
 #include "cartographer/transform/transform.h"
 #include "glog/logging.h"
-#include <open_chisel/Chisel.h>
-#include <open_chisel/MultiDistVoxel.h>
-
 
 namespace cartographer {
 namespace mapping_3d {
 namespace scan_matching {
 
 proto::FastCorrelativeScanMatcherOptions
-CreateFastTSDFCorrelativeScanMatcherOptions(
+CreateFastCorrelativeConversionScanMatcherOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::FastCorrelativeScanMatcherOptions options;
   options.set_branch_and_bound_depth(
@@ -60,30 +57,36 @@ CreateFastTSDFCorrelativeScanMatcherOptions(
 class PrecomputationGridStack {
  public:
   PrecomputationGridStack(
-      chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid,
+      const chisel::ChiselPtr<chisel::MultiDistVoxel>& hybrid_grid,
       const proto::FastCorrelativeScanMatcherOptions& options) {
     CHECK_GE(options.branch_and_bound_depth(), 1);
     CHECK_GE(options.full_resolution_depth(), 1);
-    precomputation_grids_.reserve(1);//options.branch_and_bound_depth());
-    LOG(WARNING) << "STARTING Precomputations";
-
-    hybrid_grid->GetMutableChunkManager().ComputeExpandedGrid(options.branch_and_bound_depth());
-    precomputation_grids_.push_back(hybrid_grid);
-   // for (int depth = 1; depth != options.branch_and_bound_depth(); ++depth) {
-    LOG(WARNING) << "STARTING Precomputations";
-        //todo(kdaun) precompute grid levels
-    //    precomputation_grids_.push_back(hybrid_grid);
-    //}
+    precomputation_grids_.reserve(options.branch_and_bound_depth());
+    precomputation_grids_.push_back(ConvertToPrecomputationGrid(hybrid_grid)); //todo(kdaun) create conversion from tsdf to precomputation grid
+    Eigen::Array3i last_width = Eigen::Array3i::Ones();
+    for (int depth = 1; depth != options.branch_and_bound_depth(); ++depth) {
+      const bool half_resolution = depth >= options.full_resolution_depth();
+      const Eigen::Array3i next_width = ((1 << depth) * Eigen::Array3i::Ones());
+      const int full_voxels_per_high_resolution_voxel =
+          1 << std::max(0, depth - options.full_resolution_depth());
+      const Eigen::Array3i shift =
+          (next_width - last_width +
+           (full_voxels_per_high_resolution_voxel - 1)) /
+          full_voxels_per_high_resolution_voxel;
+      precomputation_grids_.push_back(
+          PrecomputeGrid(precomputation_grids_.back(), half_resolution, shift));
+      last_width = next_width;
+    }
   }
 
-  chisel::ChiselConstPtr<chisel::MultiDistVoxel> Get(int depth) const {
+  const PrecomputationGrid& Get(int depth) const {
     return precomputation_grids_.at(depth);
   }
 
   int max_depth() const { return precomputation_grids_.size() - 1; }
 
  private:
-  std::vector<chisel::ChiselConstPtr<chisel::MultiDistVoxel>> precomputation_grids_;
+  std::vector<PrecomputationGrid> precomputation_grids_;
 };
 
 int ComputeVoxelWidth(chisel::ChiselConstPtr<chisel::MultiDistVoxel> hybrid_grid){
@@ -96,7 +99,7 @@ int ComputeVoxelWidth(chisel::ChiselConstPtr<chisel::MultiDistVoxel> hybrid_grid
     return int(width_in_voxels_);
 }
 
-FastCorrelativeTSDFScanMatcher::FastCorrelativeTSDFScanMatcher(chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid,
+FastCorrelativeConversionScanMatcher::FastCorrelativeConversionScanMatcher(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid,
     const std::vector<mapping::TrajectoryNode>& nodes,
     const proto::FastCorrelativeScanMatcherOptions& options)
     : options_(options),
@@ -107,9 +110,9 @@ FastCorrelativeTSDFScanMatcher::FastCorrelativeTSDFScanMatcher(chisel::ChiselPtr
           common::make_unique<PrecomputationGridStack>(hybrid_grid, options)),
       rotational_scan_matcher_(nodes, options_.rotational_histogram_size()) {}
 
-FastCorrelativeTSDFScanMatcher::~FastCorrelativeTSDFScanMatcher() {}
+FastCorrelativeConversionScanMatcher::~FastCorrelativeConversionScanMatcher() {}
 
-bool FastCorrelativeTSDFScanMatcher::Match(
+bool FastCorrelativeConversionScanMatcher::Match(
     const transform::Rigid3d& initial_pose_estimate,
     const sensor::PointCloud& coarse_point_cloud,
     const sensor::PointCloud& fine_point_cloud, const float min_score,
@@ -123,7 +126,7 @@ bool FastCorrelativeTSDFScanMatcher::Match(
                                    min_score, score, pose_estimate);
 }
 
-bool FastCorrelativeTSDFScanMatcher::MatchFullSubmap(
+bool FastCorrelativeConversionScanMatcher::MatchFullSubmap(
     const Eigen::Quaterniond& gravity_alignment,
     const sensor::PointCloud& coarse_point_cloud,
     const sensor::PointCloud& fine_point_cloud, const float min_score,
@@ -143,8 +146,8 @@ bool FastCorrelativeTSDFScanMatcher::MatchFullSubmap(
                                    min_score, score, pose_estimate);
 }
 
-bool FastCorrelativeTSDFScanMatcher::MatchWithSearchParameters(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
+bool FastCorrelativeConversionScanMatcher::MatchWithSearchParameters(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
     const transform::Rigid3d& initial_pose_estimate,
     const sensor::PointCloud& coarse_point_cloud,
     const sensor::PointCloud& fine_point_cloud, const float min_score,
@@ -152,20 +155,17 @@ bool FastCorrelativeTSDFScanMatcher::MatchWithSearchParameters(
   CHECK_NOTNULL(score);
   CHECK_NOTNULL(pose_estimate);
 
-  const std::vector<ContinuousScan> discrete_scans = GenerateDiscreteScans(
-              search_parameters, coarse_point_cloud, fine_point_cloud,
+  const std::vector<DiscreteScan> discrete_scans = GenerateDiscreteScans(
+      search_parameters, coarse_point_cloud, fine_point_cloud,
       initial_pose_estimate.cast<float>());
 
   const std::vector<Candidate> lowest_resolution_candidates =
       ComputeLowestResolutionCandidates(search_parameters, discrete_scans);
-  LOG(INFO) << "Num candidates " << lowest_resolution_candidates.size();
 
   const Candidate best_candidate = BranchAndBound(
       search_parameters, discrete_scans, lowest_resolution_candidates,
       precomputation_grid_stack_->max_depth(), min_score);
-
-  LOG(INFO) << "New score: " << best_candidate.score;
-  if (best_candidate.score < min_score) {
+  if (best_candidate.score > min_score) {
     *score = best_candidate.score;
     *pose_estimate =
         (transform::Rigid3f(
@@ -178,22 +178,22 @@ bool FastCorrelativeTSDFScanMatcher::MatchWithSearchParameters(
   return false;
 }
 
-ContinuousScan FastCorrelativeTSDFScanMatcher::DiscretizeScan(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
+DiscreteScan FastCorrelativeConversionScanMatcher::DiscretizeScan(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
     const sensor::PointCloud& point_cloud,
     const transform::Rigid3f& pose) const {
-  std::vector<std::vector<Eigen::Array3f>> transformed_points_per_depth;
-  chisel::ChiselConstPtr<chisel::MultiDistVoxel> original_grid = precomputation_grid_stack_->Get(0);
-  std::vector<Eigen::Array3f> full_resolution_transformed_points;
+  std::vector<std::vector<Eigen::Array3i>> cell_indices_per_depth;
+  const PrecomputationGrid& original_grid = precomputation_grid_stack_->Get(0);
+  std::vector<Eigen::Array3i> full_resolution_cell_indices;
   for (const Eigen::Vector3f& point :
        sensor::TransformPointCloud(point_cloud, pose)) {
-    full_resolution_transformed_points.push_back(point);
+    full_resolution_cell_indices.push_back(original_grid.GetCellIndex(point));
   }
   const int full_resolution_depth = std::min(options_.full_resolution_depth(),
                                              options_.branch_and_bound_depth());
   CHECK_GE(full_resolution_depth, 1);
   for (int i = 0; i != full_resolution_depth; ++i) {
-    transformed_points_per_depth.push_back(full_resolution_transformed_points);
+    cell_indices_per_depth.push_back(full_resolution_cell_indices);
   }
   const int low_resolution_depth =
       options_.branch_and_bound_depth() - full_resolution_depth;
@@ -204,31 +204,30 @@ ContinuousScan FastCorrelativeTSDFScanMatcher::DiscretizeScan(
       -search_parameters.linear_z_window_size);
   for (int i = 0; i != low_resolution_depth; ++i) {
     const int reduction_exponent = i + 1;
-    const Eigen::Array3f low_resolution_search_window_start(
-        (search_window_start[0] >> reduction_exponent) * resolution_,
-        (search_window_start[1] >> reduction_exponent) * resolution_,
-        (search_window_start[2] >> reduction_exponent) * resolution_);
-    transformed_points_per_depth.emplace_back();
-    for (const Eigen::Array3f& point : full_resolution_transformed_points) {
-      const Eigen::Array3f cell_at_start = point + search_window_start.cast<float>() * resolution_;
-      const Eigen::Array3f low_resolution_cell_at_start(
-          cell_at_start[0] / std::pow(2,reduction_exponent),
-          cell_at_start[1] / std::pow(2,reduction_exponent),
-          cell_at_start[2] / std::pow(2,reduction_exponent));
-      //todo(kdaun) check of indexing is still correct
-      transformed_points_per_depth.back().push_back(
+    const Eigen::Array3i low_resolution_search_window_start(
+        search_window_start[0] >> reduction_exponent,
+        search_window_start[1] >> reduction_exponent,
+        search_window_start[2] >> reduction_exponent);
+    cell_indices_per_depth.emplace_back();
+    for (const Eigen::Array3i& cell_index : full_resolution_cell_indices) {
+      const Eigen::Array3i cell_at_start = cell_index + search_window_start;
+      const Eigen::Array3i low_resolution_cell_at_start(
+          cell_at_start[0] >> reduction_exponent,
+          cell_at_start[1] >> reduction_exponent,
+          cell_at_start[2] >> reduction_exponent);
+      cell_indices_per_depth.back().push_back(
           low_resolution_cell_at_start - low_resolution_search_window_start);
     }
   }
-  return ContinuousScan{pose, transformed_points_per_depth};
+  return DiscreteScan{pose, cell_indices_per_depth};
 }
 
-std::vector<ContinuousScan> FastCorrelativeTSDFScanMatcher::GenerateDiscreteScans(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
+std::vector<DiscreteScan> FastCorrelativeConversionScanMatcher::GenerateDiscreteScans(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
     const sensor::PointCloud& coarse_point_cloud,
     const sensor::PointCloud& fine_point_cloud,
     const transform::Rigid3f& initial_pose) const {
-  std::vector<ContinuousScan> result;
+  std::vector<DiscreteScan> result;
   // We set this value to something on the order of resolution to make sure that
   // the std::acos() below is defined.
   float max_scan_range = 3.f * resolution_;
@@ -269,8 +268,8 @@ std::vector<ContinuousScan> FastCorrelativeTSDFScanMatcher::GenerateDiscreteScan
 }
 
 std::vector<Candidate>
-FastCorrelativeTSDFScanMatcher::GenerateLowestResolutionCandidates(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
+FastCorrelativeConversionScanMatcher::GenerateLowestResolutionCandidates(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
     const int num_discrete_scans) const {
   const int linear_step_size = 1 << precomputation_grid_stack_->max_depth();
   const int num_lowest_resolution_linear_xy_candidates =
@@ -303,43 +302,34 @@ FastCorrelativeTSDFScanMatcher::GenerateLowestResolutionCandidates(
   return candidates;
 }
 
-void FastCorrelativeTSDFScanMatcher::ScoreCandidates(
-    const int depth, const std::vector<ContinuousScan>& discrete_scans,
+void FastCorrelativeConversionScanMatcher::ScoreCandidates(
+    const int depth, const std::vector<DiscreteScan>& discrete_scans,
     std::vector<Candidate>* const candidates) const {
   const int reduction_exponent =
       std::max(0, depth - options_.full_resolution_depth() + 1);
   for (Candidate& candidate : *candidates) {
-    float sum = 0;
-    const ContinuousScan& discrete_scan = discrete_scans[candidate.scan_index];
+    int sum = 0;
+    const DiscreteScan& discrete_scan = discrete_scans[candidate.scan_index];
     const Eigen::Array3i offset(candidate.offset[0] >> reduction_exponent,
                                 candidate.offset[1] >> reduction_exponent,
                                 candidate.offset[2] >> reduction_exponent);
-    CHECK_LT(depth, discrete_scan.transformed_points_per_depth.size());
-    for (const Eigen::Array3f& point :
-         discrete_scan.transformed_points_per_depth[depth]) {
-      const Eigen::Array3f proposed_point = point + offset.cast<float>()*resolution_;
-      chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf = precomputation_grid_stack_->Get(0);
-      const auto& chunk_manager = tsdf->GetChunkManager();
-      const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(proposed_point));
-
-      double q = 0.5; //todo(kdaun) how to set value outside of tsdf
-      if(voxel) {
-        if(voxel->IsValid()) {
-            q = std::abs(voxel->GetExpandedSDF(depth));
-        }
-      }
-      sum += q*q;
+    CHECK_LT(depth, discrete_scan.cell_indices_per_depth.size());
+    for (const Eigen::Array3i& cell_index :
+         discrete_scan.cell_indices_per_depth[depth]) {
+      const Eigen::Array3i proposed_cell_index = cell_index + offset;
+      sum += precomputation_grid_stack_->Get(depth).value(proposed_cell_index);
     }
-    candidate.score = sum /
-        static_cast<float>(discrete_scan.transformed_points_per_depth[depth].size());
+    candidate.score = PrecomputationGrid::ToProbability(
+        sum /
+        static_cast<float>(discrete_scan.cell_indices_per_depth[depth].size()));
   }
-  std::sort(candidates->begin(), candidates->end(), std::less<Candidate>());
+  std::sort(candidates->begin(), candidates->end(), std::greater<Candidate>());
 }
 
 std::vector<Candidate>
-FastCorrelativeTSDFScanMatcher::ComputeLowestResolutionCandidates(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
-    const std::vector<ContinuousScan>& discrete_scans) const {
+FastCorrelativeConversionScanMatcher::ComputeLowestResolutionCandidates(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
+    const std::vector<DiscreteScan>& discrete_scans) const {
   std::vector<Candidate> lowest_resolution_candidates =
       GenerateLowestResolutionCandidates(search_parameters,
                                          discrete_scans.size());
@@ -348,20 +338,20 @@ FastCorrelativeTSDFScanMatcher::ComputeLowestResolutionCandidates(
   return lowest_resolution_candidates;
 }
 
-Candidate FastCorrelativeTSDFScanMatcher::BranchAndBound(
-    const FastCorrelativeTSDFScanMatcher::SearchParameters& search_parameters,
-    const std::vector<ContinuousScan>& discrete_scans,
+Candidate FastCorrelativeConversionScanMatcher::BranchAndBound(
+    const FastCorrelativeConversionScanMatcher::SearchParameters& search_parameters,
+    const std::vector<DiscreteScan>& discrete_scans,
     const std::vector<Candidate>& candidates, const int candidate_depth,
-    float max_score) const {
+    float min_score) const {
   if (candidate_depth == 0) {
     // Return the best candidate.
     return *candidates.begin();
   }
 
   Candidate best_high_resolution_candidate(0, Eigen::Array3i::Zero());
-  best_high_resolution_candidate.score = max_score;
+  best_high_resolution_candidate.score = min_score;
   for (const Candidate& candidate : candidates) {
-    if (candidate.score >= max_score) {
+    if (candidate.score <= min_score) {
       break;
     }
     std::vector<Candidate> higher_resolution_candidates;
@@ -382,13 +372,12 @@ Candidate FastCorrelativeTSDFScanMatcher::BranchAndBound(
           }
           higher_resolution_candidates.emplace_back(
               candidate.scan_index, candidate.offset + Eigen::Array3i(x, y, z));
-          //todo(kdaun) resolution
         }
       }
     }
     ScoreCandidates(candidate_depth - 1, discrete_scans,
                     &higher_resolution_candidates);
-    best_high_resolution_candidate = std::min(
+    best_high_resolution_candidate = std::max(
         best_high_resolution_candidate,
         BranchAndBound(search_parameters, discrete_scans,
                        higher_resolution_candidates, candidate_depth - 1,
