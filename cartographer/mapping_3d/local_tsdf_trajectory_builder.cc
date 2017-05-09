@@ -28,9 +28,11 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
         local_trajectory_builder_options) {
   switch (local_trajectory_builder_options.use()) {
     case proto::LocalTrajectoryBuilderOptions::KALMAN:
+      LOG(INFO) << "Initializing KalmanTSDFLocalTrajectoryBuilder";
       return common::make_unique<KalmanTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
     case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
+      LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
       return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
   }
