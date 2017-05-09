@@ -16,7 +16,7 @@
 
 #include "cartographer/mapping_3d/global_tsdf_trajectory_builder.h"
 
-#include "cartographer/mapping_3d/local_trajectory_builder.h"
+#include "cartographer/mapping_3d/local_tsdf_trajectory_builder.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -24,8 +24,7 @@ namespace mapping_3d {
 GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(const proto::LocalTrajectoryBuilderOptions& options,
     cartographer::mapping_3d::SparsePoseGraphConversion *sparse_pose_graph)
     : sparse_pose_graph_(sparse_pose_graph),
-      local_trajectory_builder_(common::make_unique<KalmanTSDFLocalTrajectoryBuilder>(
-                                    options)) {}
+      local_trajectory_builder_(CreateLocalTSDFTrajectoryBuilder(options)) {}
 
 GlobalTSDFTrajectoryBuilder::~GlobalTSDFTrajectoryBuilder() {}
 
