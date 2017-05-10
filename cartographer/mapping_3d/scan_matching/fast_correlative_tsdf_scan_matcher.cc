@@ -64,16 +64,9 @@ class PrecomputationGridStack {
       const proto::FastCorrelativeScanMatcherOptions& options) {
     CHECK_GE(options.branch_and_bound_depth(), 1);
     CHECK_GE(options.full_resolution_depth(), 1);
-    precomputation_grids_.reserve(1);//options.branch_and_bound_depth());
-    LOG(WARNING) << "STARTING Precomputations";
-
+    precomputation_grids_.reserve(1);
     hybrid_grid->GetMutableChunkManager().ComputeExpandedGrid(options.branch_and_bound_depth());
     precomputation_grids_.push_back(hybrid_grid);
-   // for (int depth = 1; depth != options.branch_and_bound_depth(); ++depth) {
-    LOG(WARNING) << "STARTING Precomputations";
-        //todo(kdaun) precompute grid levels
-    //    precomputation_grids_.push_back(hybrid_grid);
-    //}
   }
 
   chisel::ChiselConstPtr<chisel::MultiDistVoxel> Get(int depth) const {

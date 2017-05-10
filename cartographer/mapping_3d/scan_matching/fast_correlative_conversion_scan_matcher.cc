@@ -62,7 +62,7 @@ class PrecomputationGridStack {
     CHECK_GE(options.branch_and_bound_depth(), 1);
     CHECK_GE(options.full_resolution_depth(), 1);
     precomputation_grids_.reserve(options.branch_and_bound_depth());
-    precomputation_grids_.push_back(ConvertToPrecomputationGrid(hybrid_grid)); //todo(kdaun) create conversion from tsdf to precomputation grid
+    precomputation_grids_.push_back(ConvertToPrecomputationGrid(hybrid_grid));
     Eigen::Array3i last_width = Eigen::Array3i::Ones();
     for (int depth = 1; depth != options.branch_and_bound_depth(); ++depth) {
       const bool half_resolution = depth >= options.full_resolution_depth();

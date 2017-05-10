@@ -87,6 +87,28 @@ class TSDFs : public mapping::Submaps {
   void AddTrajectoryNodeIndex(int trajectory_node_index);
 
  private:
+  struct PixelData {
+    int min_z = INT_MAX;
+    int max_z = INT_MIN;
+    int count = 0;
+    float probability_sum = 0.f;
+    float max_probability = 0.5f;
+  };
+
+  std::vector<PixelData> AccumulatePixelData(
+      const int width, const int height, const Eigen::Array2i& min_index,
+      const Eigen::Array2i& max_index,
+      const std::vector<Eigen::Array4i>& voxel_indices_and_probabilities) const;
+  // The first three entries of each returned value are a cell_index and the
+  // last is the corresponding probability value. We batch them together like
+  // this to only have one vector and have better cache locality.
+  std::vector<Eigen::Array4i> ExtractVoxelData(
+      const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid, const transform::Rigid3f& transform,
+      Eigen::Array2i* min_index, Eigen::Array2i* max_index) const;
+  // Builds texture data containing interleaved value and alpha for the
+  // visualization from 'accumulated_pixel_data'.
+  string ComputePixelValues(
+      const std::vector<PixelData>& accumulated_pixel_data) const;
 
   void AddTSDF(const Eigen::Vector3f& origin);
 
