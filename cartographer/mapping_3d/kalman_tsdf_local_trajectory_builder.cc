@@ -157,7 +157,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
                              &pose_observation, &summary);*/
 
   int coarsening_factor = 1;
-
+/*
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
@@ -169,7 +169,19 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     coarsening_factor, &pose_observation, &summary);
+     coarsening_factor, &pose_observation, &summary);*/
+
+  /*
+  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
+     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
+     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
+     1, &pose_observation, &summary);*/
+
+  ceres_scan_matcher_->MatchCombined(scan_matcher_pose_estimate_, initial_ceres_pose,
+     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
+     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
+     &pose_observation, &summary);
+
 
   pose_tracker_->AddPoseObservation(
       time, pose_observation,

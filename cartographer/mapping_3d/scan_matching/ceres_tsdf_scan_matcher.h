@@ -60,6 +60,17 @@ class CeresTSDFScanMatcher {
              transform::Rigid3d* pose_estimate,
              ceres::Solver::Summary* summary);
 
+  // Aligns 'point_clouds' within the 'hybrid_grids' given an
+  // 'initial_pose_estimate' and returns 'pose_estimate', and
+  // the solver 'summary'.
+  void MatchCombined(const transform::Rigid3d& previous_pose,
+             const transform::Rigid3d& initial_pose_estimate,
+             const std::vector<PointCloudAndTSDFPointers>&
+                 point_clouds_and_tsdfs,
+             float max_truncation_distance,
+             transform::Rigid3d* pose_estimate,
+             ceres::Solver::Summary* summary);
+
  private:
   const proto::CeresScanMatcherOptions options_;
   ceres::Solver::Options ceres_solver_options_;
