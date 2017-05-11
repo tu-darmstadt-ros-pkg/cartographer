@@ -315,7 +315,7 @@ void FastCorrelativeTSDFScanMatcher::ScoreCandidates(
       const auto& chunk_manager = tsdf->GetChunkManager();
       const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(proposed_point));
 
-      double q = 0.5; //todo(kdaun) how to set value outside of tsdf
+      double q = 0.2; //todo(kdaun) how to set value outside of tsdf
       if(voxel) {
         if(voxel->IsValid()) {
             q = std::abs(voxel->GetExpandedSDF(depth));

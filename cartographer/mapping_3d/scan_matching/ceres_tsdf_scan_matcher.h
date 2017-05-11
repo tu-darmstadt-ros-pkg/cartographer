@@ -55,6 +55,7 @@ class CeresTSDFScanMatcher {
              const transform::Rigid3d& initial_pose_estimate,
              const std::vector<PointCloudAndTSDFPointers>&
                  point_clouds_and_tsdfs,
+             float max_truncation_distance,
              int coarsening_factor,
              transform::Rigid3d* pose_estimate,
              ceres::Solver::Summary* summary);

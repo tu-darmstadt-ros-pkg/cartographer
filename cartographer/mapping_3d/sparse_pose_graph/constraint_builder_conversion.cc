@@ -253,7 +253,7 @@ void ConstraintBuilderConversion::ComputeConstraint(
   ceres_scan_matcher_.Match(
       pose_estimate, pose_estimate,
       {{&filtered_point_cloud, submap_scan_matcher->hybrid_grid}},
-      1, &pose_estimate, &unused_summary);
+      submap->max_truncation_distance, 1, &pose_estimate, &unused_summary);
 
 
   const transform::Rigid3d constraint_transform =

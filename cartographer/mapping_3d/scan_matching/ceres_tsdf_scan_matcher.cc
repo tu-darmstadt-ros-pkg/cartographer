@@ -89,6 +89,7 @@ void CeresTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
                              const transform::Rigid3d& initial_pose_estimate,
                              const std::vector<PointCloudAndTSDFPointers>&
                                  point_clouds_and_tsdfs,
+                             float max_truncation_distance,
                              int coarsening_factor,
                              transform::Rigid3d* const pose_estimate,
                              ceres::Solver::Summary* const summary) {
@@ -118,7 +119,7 @@ void CeresTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
             new TSDFOccupiedSpaceCostFunctor(
                 options_.occupied_space_weight(i) /
                     std::sqrt(static_cast<double>(point_cloud.size())),
-                point_cloud, tsdf, coarsening_factor),
+                point_cloud, tsdf, coarsening_factor, max_truncation_distance),
             point_cloud.size()),
         nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }

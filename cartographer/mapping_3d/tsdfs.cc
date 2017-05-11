@@ -48,9 +48,12 @@ proto::SubmapsOptions CreateSubmapsOptions(
 */
 
 TSDF::TSDF(const float high_resolution, const float low_resolution,
-               const Eigen::Vector3f& origin, const int begin_range_data_index)
-    : mapping::Submap(origin, begin_range_data_index) {
-    tsdf.reset(new chisel::Chisel<chisel::MultiDistVoxel>(Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
+               const Eigen::Vector3f& origin, const int begin_range_data_index,
+               float max_truncation_distance)
+    : mapping::Submap(origin, begin_range_data_index),
+    max_truncation_distance(max_truncation_distance){
+    tsdf.reset(new chisel::Chisel<chisel::MultiDistVoxel>
+               (Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
     //todo(kdaun) load params from config
 }
 
@@ -221,7 +224,7 @@ string TSDFs::ComputePixelValues(
       else
           cell_value = 0;
       cell_data.push_back(cell_value);  // value
-      cell_data.push_back(80);  // alpha
+      cell_data.push_back(70);  // alpha
   }
   return cell_data;
 }
@@ -318,13 +321,14 @@ void TSDFs::AddTSDF(const Eigen::Vector3f& origin) {
   }
   submaps_.emplace_back(new TSDF(options_.high_resolution(),
                                    options_.low_resolution(), origin,
-                                   num_range_data_));
+                                   num_range_data_,(std::ceil(0.01*16.0/0.05)*0.05)));
   chisel::ProjectionIntegrator projection_integrator;
   projection_integrator.SetCentroids(submaps_[size()-1]->tsdf->GetChunkManager().GetCentroids());
   projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(0.01, 16.0)));
+  //todo(kdaun) load params from config
   projection_integrator.SetWeighter(chisel::WeighterPtr(new chisel::ConstantWeighter(1)));
   projection_integrator.SetCarvingDist(0.1);
-  projection_integrator.SetCarvingEnabled(true);
+  projection_integrator.SetCarvingEnabled(false);
   projection_integrators_.emplace_back(projection_integrator);
 
   LOG(INFO) << "Added submap " << size();

@@ -40,11 +40,11 @@ class TSDFOccupiedSpaceCostFunctor {
   TSDFOccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
                            chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf,
-                           int coarsening_factor)
+                           int coarsening_factor, float max_truncation_distance)
       : scaling_factor_(scaling_factor),
         coarsening_factor_(coarsening_factor),
         point_cloud_(point_cloud),
-        interpolated_grid_(tsdf) {}
+        interpolated_grid_(tsdf, max_truncation_distance) {}
 
   TSDFOccupiedSpaceCostFunctor(const TSDFOccupiedSpaceCostFunctor&) = delete;
   TSDFOccupiedSpaceCostFunctor& operator=(const TSDFOccupiedSpaceCostFunctor&) = delete;

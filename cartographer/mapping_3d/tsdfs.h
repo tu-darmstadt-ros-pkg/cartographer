@@ -41,10 +41,12 @@ namespace mapping_3d {
 
 struct TSDF : public mapping::Submap {
   TSDF(float high_resolution, float low_resolution,
-         const Eigen::Vector3f& origin, int begin_range_data_index);
+         const Eigen::Vector3f& origin, int begin_range_data_index,
+         float max_truncation_distance);
 
   chisel::ChiselPtr<chisel::MultiDistVoxel> tsdf;
   bool finished = false;
+  float max_truncation_distance;
   std::vector<int> trajectory_node_indices;
 };
 

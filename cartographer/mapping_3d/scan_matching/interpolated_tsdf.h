@@ -37,8 +37,9 @@ namespace scan_matching {
 
 class InterpolatedTSDF {
  public:
-  explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf)
-      : tsdf_(tsdf) {}
+  explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf,
+                            float max_truncation_distance)
+      : tsdf_(tsdf), max_truncation_distance_(max_truncation_distance) {}
 
   InterpolatedTSDF(const InterpolatedTSDF&) = delete;
   InterpolatedTSDF& operator=(const InterpolatedTSDF&) = delete;
@@ -153,7 +154,7 @@ class InterpolatedTSDF {
 
   double getVoxelSDF(const chisel::MultiDistVoxel* voxel) const
   {
-      double q = 0.5; //todo how to set value outside of tsdf
+      double q =max_truncation_distance_; //todo how to set value outside of tsdf
       if(voxel) {
         if(voxel->IsValid()) {
             q = voxel->GetSDF();
@@ -163,6 +164,7 @@ class InterpolatedTSDF {
   }
 
   chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf_;
+  float max_truncation_distance_;
 };
 
 }  // namespace scan_matching
