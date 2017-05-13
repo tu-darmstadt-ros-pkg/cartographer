@@ -21,6 +21,7 @@
 #include "cartographer/mapping_3d/optimizing_local_trajectory_builder_options.h"
 #include "cartographer/mapping_3d/scan_matching/ceres_scan_matcher.h"
 #include "cartographer/mapping_3d/submaps.h"
+#include "cartographer/mapping_3d/tsdfs.h"
 #include "cartographer/sensor/voxel_filter.h"
 #include "glog/logging.h"
 
@@ -55,6 +56,8 @@ proto::LocalTrajectoryBuilderOptions CreateLocalTrajectoryBuilderOptions(
       parameter_dictionary->GetDictionary("motion_filter").get());
   *options.mutable_submaps_options() = mapping_3d::CreateSubmapsOptions(
       parameter_dictionary->GetDictionary("submaps").get());
+  *options.mutable_tsdfs_options() = mapping_3d::CreateTSDFsOptions(
+      parameter_dictionary->GetDictionary("tsdfs").get());
   *options.mutable_kalman_local_trajectory_builder_options() =
       CreateKalmanLocalTrajectoryBuilderOptions(
           parameter_dictionary->GetDictionary("kalman_local_trajectory_builder")

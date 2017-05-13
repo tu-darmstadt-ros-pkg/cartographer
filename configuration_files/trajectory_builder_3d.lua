@@ -63,6 +63,23 @@ TRAJECTORY_BUILDER_3D = {
     },
   },
 
+  tsdfs = {
+    high_resolution = 0.10,
+    high_resolution_max_range = 20.,
+    low_resolution = 0.45,
+    num_range_data = 160,
+    chuck_size_x = 16,
+    chuck_size_y = 16,
+    chuck_size_z = 16,
+    projection_integrator = {
+      truncation_scale = 16.0,
+      truncation_distance = 0.01,
+      carving_enabled = true,
+      carving_distance = 0.1,
+    },
+  },
+
+
   use = "KALMAN",  -- or "OPTIMIZING".
   kalman_local_trajectory_builder = {
     pose_tracker = {

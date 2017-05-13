@@ -154,7 +154,7 @@ class InterpolatedTSDF {
 
   double getVoxelSDF(const chisel::MultiDistVoxel* voxel) const
   {
-      double q =max_truncation_distance_; //todo how to set value outside of tsdf
+      double q = max_truncation_distance_;
       if(voxel) {
         if(voxel->IsValid()) {
             q = voxel->GetSDF();

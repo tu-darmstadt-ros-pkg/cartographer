@@ -22,16 +22,31 @@
 #include <open_chisel/weighting/ConstantWeighter.h>
 #include "cartographer/common/math.h"
 #include "cartographer/sensor/range_data.h"
+#include "cartographer/mapping_3d/proto/tsdfs_options.pb.h"
 #include "glog/logging.h"
 
 namespace cartographer {
 namespace mapping_3d {
 
 //namespace {
-/*
-proto::SubmapsOptions CreateSubmapsOptions(
+proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
+    common::LuaParameterDictionary* parameter_dictionary){
+  proto::ProjectionIntegratorOptions options;
+  options.set_truncation_scale(
+      parameter_dictionary->GetDouble("truncation_scale"));
+  options.set_truncation_distance(
+      parameter_dictionary->GetDouble("truncation_distance"));
+  options.set_carving_enabled(
+      parameter_dictionary->GetBool("carving_enabled"));
+  options.set_carving_distance(
+      parameter_dictionary->GetDouble("carving_distance"));
+  return options;
+}
+
+
+proto::TSDFsOptions CreateTSDFsOptions(
     common::LuaParameterDictionary* parameter_dictionary) {
-  proto::SubmapsOptions options;
+  proto::TSDFsOptions options;
   options.set_high_resolution(
       parameter_dictionary->GetDouble("high_resolution"));
   options.set_high_resolution_max_range(
@@ -39,23 +54,32 @@ proto::SubmapsOptions CreateSubmapsOptions(
   options.set_low_resolution(parameter_dictionary->GetDouble("low_resolution"));
   options.set_num_range_data(
       parameter_dictionary->GetNonNegativeInt("num_range_data"));
-  *options.mutable_range_data_inserter_options() =
-      CreateRangeDataInserterOptions(
-          parameter_dictionary->GetDictionary("range_data_inserter").get());
+  options.set_chuck_size_x(
+      parameter_dictionary->GetNonNegativeInt("chuck_size_x"));
+  options.set_chuck_size_y(
+      parameter_dictionary->GetNonNegativeInt("chuck_size_y"));
+  options.set_chuck_size_z(
+      parameter_dictionary->GetNonNegativeInt("chuck_size_z"));
+  *options.mutable_projection_integrator_options() =
+      CreateProjectionIntegratorOptions(
+          parameter_dictionary->GetDictionary("projection_integrator").get());
   CHECK_GT(options.num_range_data(), 0);
+  CHECK_GT(options.chuck_size_x(), 0);
+  CHECK_GT(options.chuck_size_y(), 0);
+  CHECK_GT(options.chuck_size_z(), 0);
   return options;
 }
-*/
+
 
 TSDF::TSDF(const float high_resolution, const float low_resolution,
                const Eigen::Vector3f& origin, const int begin_range_data_index,
-               float max_truncation_distance)
+               float max_truncation_distance, Eigen::Vector3i& chunk_size)
     : mapping::Submap(origin, begin_range_data_index),
     max_truncation_distance(max_truncation_distance){
     tsdf.reset(new chisel::Chisel<chisel::MultiDistVoxel>
-               (Eigen::Vector3i(16, 16, 16), 0.05, false, origin));
-    //todo(kdaun) load params from config
+               (chunk_size, high_resolution, false, origin));
 }
+
 
 TSDFs::TSDFs()
 {
@@ -65,7 +89,7 @@ TSDFs::TSDFs()
 }
 
 
-TSDFs::TSDFs(const proto::SubmapsOptions& options)
+TSDFs::TSDFs(const proto::TSDFsOptions& options)
     : options_(options) {
   // We always want to have at least one tsdf which we can return,
   // and will create it at the origin in absence of a better choice.
@@ -125,12 +149,10 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     transform.translation()(1) = pose_observation.translation()(1);
     transform.translation()(2) = pose_observation.translation()(2);
 
-
     chisel::Vec3 chisel_pose;
     chisel_pose.x() = pose_observation.translation()(0);
     chisel_pose.y() = pose_observation.translation()(1);
-    chisel_pose.z() = pose_observation.translation()(2) + 0.5;
-
+    chisel_pose.z() = pose_observation.translation()(2) + 0.5; //todo(kdaun) add correct transform
 
     chisel::Quaternion quat;
     quat.x() = pose_observation.rotation().x();
@@ -139,8 +161,6 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     quat.w() = pose_observation.rotation().w();
     transform.linear() = quat.toRotationMatrix();
 
-
-    //std::vector<int> insertion_indices = insertion_indices();
     for(int insertion_index : insertion_indices())
     {
         chisel::ChiselPtr<chisel::MultiDistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
@@ -148,10 +168,10 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
-        //todo transform data before to avoid double transformation
+        //todo(kdaun) transform data before to avoid double transformation
+        //min and max dist are already filtered in the local trajectory builder
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
-                                         transform, chisel_pose, 0.5f, 6.f);
-        //TODO  set far/near plane in config
+                                         transform, chisel_pose, 0.0f, HUGE_VALF);
         chisel_tsdf->UpdateMeshes();
         submap->end_range_data_index = num_range_data_;
     }
@@ -301,35 +321,32 @@ void TSDFs::AddTrajectoryNodeIndex(const int trajectory_node_index) {
   }
 }
 
-
-/*
-const HybridGrid& Submaps::high_resolution_matching_grid() const {
-  return submaps_[matching_index()]->high_resolution_hybrid_grid;
-}
-
-const HybridGrid& Submaps::low_resolution_matching_grid() const {
-  return submaps_[matching_index()]->low_resolution_hybrid_grid;
-}
-*/
-
-
 void TSDFs::AddTSDF(const Eigen::Vector3f& origin) {
   if (size() > 1) {
     TSDF* submap = submaps_[size() - 2].get();
     CHECK(!submap->finished);
     submap->finished = true;
   }
-  submaps_.emplace_back(new TSDF(options_.high_resolution(),
-                                   options_.low_resolution(), origin,
-                                   num_range_data_,(std::ceil(0.01*16.0/0.05)*0.05)));
+  double resolution = options_.high_resolution();
+  double truncation_distance = options_.projection_integrator_options().truncation_distance();
+  double truncation_scale = options_.projection_integrator_options().truncation_scale();
+  float max_truncation_distance = std::ceil(truncation_scale * truncation_distance /
+                                            resolution) * resolution;
+  Eigen::Vector3i chunk_size;
+  chunk_size.x() = options_.chuck_size_x();
+  chunk_size.y() = options_.chuck_size_y();
+  chunk_size.z() = options_.chuck_size_z();
+  submaps_.emplace_back(new TSDF(options_.high_resolution(), options_.low_resolution(), origin,
+                                   num_range_data_,max_truncation_distance, chunk_size));
   chisel::ProjectionIntegrator projection_integrator;
   projection_integrator.SetCentroids(submaps_[size()-1]->tsdf->GetChunkManager().GetCentroids());
-  projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(0.01, 16.0)));
-  //todo(kdaun) load params from config
+  projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(truncation_distance, truncation_scale)));
   projection_integrator.SetWeighter(chisel::WeighterPtr(new chisel::ConstantWeighter(1)));
-  projection_integrator.SetCarvingDist(0.1);
-  projection_integrator.SetCarvingEnabled(false);
+  projection_integrator.SetCarvingDist(options_.projection_integrator_options().carving_distance());
+  projection_integrator.SetCarvingEnabled(options_.projection_integrator_options().carving_enabled());
   projection_integrators_.emplace_back(projection_integrator);
+
+  LOG(INFO) << "truncation_distance " << truncation_distance<<" "<< truncation_scale;
 
   LOG(INFO) << "Added submap " << size();
   num_range_data_in_last_submap_ = 0;

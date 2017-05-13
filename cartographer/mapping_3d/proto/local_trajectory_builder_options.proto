@@ -20,6 +20,7 @@ import "cartographer/mapping_3d/proto/kalman_local_trajectory_builder_options.pr
 import "cartographer/mapping_3d/proto/kalman_tsdf_local_trajectory_builder_options.proto";
 import "cartographer/mapping_3d/proto/optimizing_local_trajectory_builder_options.proto";
 import "cartographer/mapping_3d/proto/submaps_options.proto";
+import "cartographer/mapping_3d/proto/tsdfs_options.proto";
 import "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.proto";
 
 package cartographer.mapping_3d.proto;
@@ -58,4 +59,6 @@ message LocalTrajectoryBuilderOptions {
       kalman_local_trajectory_builder_options = 10;
   optional OptimizingLocalTrajectoryBuilderOptions
       optimizing_local_trajectory_builder_options = 11;
+  optional TSDFsOptions
+      tsdfs_options = 13;
 }

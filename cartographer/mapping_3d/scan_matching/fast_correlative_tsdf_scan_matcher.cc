@@ -208,7 +208,6 @@ ContinuousScan FastCorrelativeTSDFScanMatcher::DiscretizeScan(
           cell_at_start[0] / std::pow(2,reduction_exponent),
           cell_at_start[1] / std::pow(2,reduction_exponent),
           cell_at_start[2] / std::pow(2,reduction_exponent));
-      //todo(kdaun) check of indexing is still correct
       transformed_points_per_depth.back().push_back(
           low_resolution_cell_at_start - low_resolution_search_window_start);
     }

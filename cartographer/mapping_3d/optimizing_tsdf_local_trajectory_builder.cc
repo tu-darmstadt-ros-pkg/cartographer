@@ -107,7 +107,7 @@ OptimizingTSDFLocalTrajectoryBuilder::OptimizingTSDFLocalTrajectoryBuilder(
     : options_(options),
       ceres_solver_options_(common::CreateCeresSolverOptions(
           options.ceres_scan_matcher_options().ceres_solver_options())),
-      submaps_(common::make_unique<TSDFs>(options.submaps_options())),
+      submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       num_accumulated_(0),
       motion_filter_(options.motion_filter_options()) {}
 

@@ -31,7 +31,7 @@
 #include "cartographer/mapping_2d/probability_grid.h"
 #include "cartographer/mapping_2d/range_data_inserter.h"
 #include "cartographer/mapping_3d/hybrid_grid.h"
-#include "cartographer/mapping_3d/proto/submaps_options.pb.h"
+#include "cartographer/mapping_3d/proto/tsdfs_options.pb.h"
 #include "cartographer/mapping_3d/range_data_inserter.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/transform/transform.h"
@@ -39,10 +39,16 @@
 namespace cartographer {
 namespace mapping_3d {
 
+proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
+    common::LuaParameterDictionary* parameter_dictionary);
+
+proto::TSDFsOptions CreateTSDFsOptions(
+    common::LuaParameterDictionary* parameter_dictionary);
+
 struct TSDF : public mapping::Submap {
   TSDF(float high_resolution, float low_resolution,
          const Eigen::Vector3f& origin, int begin_range_data_index,
-         float max_truncation_distance);
+         float max_truncation_distance, Eigen::Vector3i& chunk_size);
 
   chisel::ChiselPtr<chisel::MultiDistVoxel> tsdf;
   bool finished = false;
@@ -55,7 +61,7 @@ struct TSDF : public mapping::Submap {
 class TSDFs : public mapping::Submaps {
  public:
   TSDFs();
-  TSDFs(const proto::SubmapsOptions& options);
+  TSDFs(const proto::TSDFsOptions& options);
 
   TSDFs(const TSDFs&) = delete;
   TSDFs& operator=(const TSDFs&) = delete;
@@ -114,7 +120,7 @@ class TSDFs : public mapping::Submaps {
 
   void AddTSDF(const Eigen::Vector3f& origin);
 
-  const proto::SubmapsOptions options_;
+  const proto::TSDFsOptions options_;
 
   std::vector<std::unique_ptr<TSDF>> submaps_;
   std::vector<chisel::ProjectionIntegrator> projection_integrators_;

@@ -30,7 +30,7 @@ namespace mapping_3d {
 KalmanTSDFLocalTrajectoryBuilder::KalmanTSDFLocalTrajectoryBuilder(
     const proto::LocalTrajectoryBuilderOptions& options)
     : options_(options),
-      submaps_(common::make_unique<TSDFs>(options.submaps_options())),
+      submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       scan_matcher_pose_estimate_(transform::Rigid3d::Identity()),
       motion_filter_(options.motion_filter_options()),
       ceres_scan_matcher_(common::make_unique<scan_matching::CeresTSDFScanMatcher>(
@@ -157,7 +157,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
                              &pose_observation, &summary);*/
 
   int coarsening_factor = 1;
-/*
+
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
@@ -169,18 +169,18 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     coarsening_factor, &pose_observation, &summary);*/
+     coarsening_factor, &pose_observation, &summary);
 
   /*
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
      1, &pose_observation, &summary);*/
-
+/*
   ceres_scan_matcher_->MatchCombined(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     &pose_observation, &summary);
+     &pose_observation, &summary);*/
 
 
   pose_tracker_->AddPoseObservation(
@@ -243,9 +243,6 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
-  /*
-  submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()));*/
 
   submaps_->InsertRangeData(range_data_in_tracking, pose_observation);
 

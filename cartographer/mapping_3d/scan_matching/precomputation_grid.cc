@@ -51,15 +51,7 @@ Eigen::Array3i CellIndexAtHalfResolution(const Eigen::Array3i& cell_index) {
 
 PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid) {
   PrecomputationGrid result(hybrid_grid->GetChunkManager().GetResolution(), hybrid_grid->GetChunkManager().GetOrigin());
- /* for (auto it = HybridGrid::Iterator(hybrid_grid); !it.Done(); it.Next()) {
-    const int cell_value = common::RoundToInt(
-        (mapping::ValueToProbability(it.GetValue()) -
-         mapping::kMinProbability) *
-        (255.f / (mapping::kMaxProbability - mapping::kMinProbability)));
-    CHECK_GE(cell_value, 0);
-    CHECK_LE(cell_value, 255);
-    *result.mutable_value(it.GetCellIndex()) = cell_value;
-  }*/ //todo(kdaun) implement iterator and conversion for tsdf
+
   const chisel::AABB& bounding_box = hybrid_grid->GetChunkManager().GetBoundingBox();
   const chisel::Vec3& min = bounding_box.min;
   const chisel::Vec3& max = bounding_box.max;
@@ -67,8 +59,6 @@ PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::M
   float resolution = hybrid_grid->GetChunkManager().GetResolution();
   float min_sdf = 0.f;
   float max_sdf = 0.5f;
-  //float max_extension = std::max(std::max(max.x() - min.x(), max.y() - min.y()), max.z() - min.z());
-  //int bits = common::RoundToInt(std::log2(max_extension/min_sdf));
 
   for(float x = min.x(); x < max.x(); x = x + resolution)
   {
