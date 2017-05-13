@@ -19,6 +19,7 @@
 #include "cartographer/common/make_unique.h"
 #include "cartographer/mapping_3d/kalman_tsdf_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/optimizing_tsdf_local_trajectory_builder.h"
+#include "cartographer/mapping_3d/continuously_optimizing_tsdf_local_trajectory_builder.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -34,6 +35,10 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
     case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
       LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
       return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
+          local_trajectory_builder_options);
+    case proto::LocalTrajectoryBuilderOptions::CONTINUOUSLY_OPTIMIZING:
+      LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
+      return common::make_unique<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
   }
   LOG(FATAL);
