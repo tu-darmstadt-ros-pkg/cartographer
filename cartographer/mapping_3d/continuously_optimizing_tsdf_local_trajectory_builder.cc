@@ -348,15 +348,13 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
     }
   }
 
-  //We estimate the sensor position over the trajectory by averaging the pose at the
-  //start and the end of the accumulation, does not hold for multiple range scanners
-  const transform::Rigid3f transform_start =
-          (optimized_pose.inverse() * batches_.begin()->state.ToRigid()).cast<float>();
-  const transform::Rigid3f transform_end =
-      (optimized_pose.inverse() * batches_.end()->state.ToRigid()).cast<float>();
-  Eigen::Vector3f sensor_origin = 0.5*(transform_start * origin
-                                       + transform_end * origin);
+  //We estimate the sensor position over the trajectory by using the median batch transform,
+  //does not hold for multiple range scanners
+  int n_batches = batches_.size();
 
+  const transform::Rigid3f transform_median =
+      ( batches_[n_batches/2].state.ToRigid()).cast<float>();
+  Eigen::Vector3f sensor_origin = transform_median * origin;
   return AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking, sensor_origin);
 }

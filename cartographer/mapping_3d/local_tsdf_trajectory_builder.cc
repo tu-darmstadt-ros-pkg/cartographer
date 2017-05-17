@@ -37,7 +37,7 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
       return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
     case proto::LocalTrajectoryBuilderOptions::CONTINUOUSLY_OPTIMIZING:
-      LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
+      LOG(INFO) << "Initializing ContinuouslyOptimizingTSDFLocalTrajectoryBuilder";
       return common::make_unique<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
   }
