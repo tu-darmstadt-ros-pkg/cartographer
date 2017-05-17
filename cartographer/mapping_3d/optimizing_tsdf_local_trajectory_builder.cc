@@ -188,7 +188,7 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
   ++num_accumulated_;
 
   RemoveObsoleteSensorData();
-  return MaybeOptimize(time);
+  return MaybeOptimize(time, origin);
 }
 
 void OptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
@@ -215,7 +215,7 @@ void OptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
 }
 
 std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
-OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
+OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, const Eigen::Vector3f& origin) {
   // TODO(hrapp): Make the number of optimizations configurable.
   if (num_accumulated_ < options_.scans_per_accumulation() &&
       num_accumulated_ % 10 != 0) {
@@ -348,14 +348,23 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
     }
   }
 
+  //We estimate the sensor position over the trajectory by averaging the pose at the
+  //start and the end of the accumulation, does not hold for multiple range scanners
+  const transform::Rigid3f transform_start =
+          (optimized_pose.inverse() * batches_.begin()->state.ToRigid()).cast<float>();
+  const transform::Rigid3f transform_end =
+      (optimized_pose.inverse() * batches_.end()->state.ToRigid()).cast<float>();
+  Eigen::Vector3f sensor_origin = 0.5*(transform_start * origin
+                                       + transform_end * origin);
+
   return AddAccumulatedRangeData(time, optimized_pose,
-                                 accumulated_range_data_in_tracking);
+                                 accumulated_range_data_in_tracking, sensor_origin);
 }
 
 std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
 OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
     const common::Time time, const transform::Rigid3d& optimized_pose,
-    const sensor::RangeData& range_data_in_tracking) {
+    const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin) {
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
@@ -373,7 +382,7 @@ OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   optimized_pose.cast<float>())};
 
-  return InsertIntoSubmap(time, filtered_range_data, optimized_pose);
+  return InsertIntoSubmap(time, filtered_range_data, optimized_pose, sensor_origin);
 }
 
 const OptimizingTSDFLocalTrajectoryBuilder::PoseEstimate&
@@ -389,7 +398,7 @@ void OptimizingTSDFLocalTrajectoryBuilder::AddTrajectoryNodeIndex(
 std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
 OptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     const common::Time time, const sensor::RangeData& range_data_in_tracking,
-    const transform::Rigid3d& pose_observation) {
+    const transform::Rigid3d& pose_observation, const Eigen::Vector3f& sensor_origin) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
   }
@@ -399,10 +408,8 @@ OptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
-  /*submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()));*/
-
-  submaps_->InsertRangeData(range_data_in_tracking, pose_observation);
+  submaps_->InsertRangeData(sensor::TransformRangeData(
+      range_data_in_tracking, pose_observation.cast<float>()), sensor_origin);
 
   const kalman_filter::PoseCovariance kCovariance =
       1e-7 * kalman_filter::PoseCovariance::Identity();

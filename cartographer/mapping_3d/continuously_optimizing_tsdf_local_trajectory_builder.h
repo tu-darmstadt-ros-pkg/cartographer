@@ -102,13 +102,12 @@ class ContinuouslyOptimizingTSDFLocalTrajectoryBuilder
 
   std::unique_ptr<InsertionResult> AddAccumulatedRangeData(
       common::Time time, const transform::Rigid3d& pose_observation,
-      const sensor::RangeData& range_data_in_tracking);
+      const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin);
 
-  std::unique_ptr<InsertionResult> InsertIntoSubmap(
-      const common::Time time, const sensor::RangeData& range_data_in_tracking,
-      const transform::Rigid3d& pose_observation);
+  std::unique_ptr<InsertionResult> InsertIntoSubmap(const common::Time time, const sensor::RangeData& range_data_in_tracking,
+      const transform::Rigid3d& pose_observation, const Eigen::Vector3f &sensor_origin);
 
-  std::unique_ptr<InsertionResult> MaybeOptimize(common::Time time);
+  std::unique_ptr<InsertionResult> MaybeOptimize(common::Time time, const Eigen::Vector3f& origin);
 
   const proto::LocalTrajectoryBuilderOptions options_;
   const ceres::Solver::Options ceres_solver_options_;

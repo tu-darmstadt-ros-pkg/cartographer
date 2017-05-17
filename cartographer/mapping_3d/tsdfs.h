@@ -75,8 +75,8 @@ class TSDFs : public mapping::Submaps {
   // be inserted.
   std::vector<int> insertion_indices() const;
   //Inserts 'range_data' into the Submap collection.
-   void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
-                        const transform::Rigid3d& pose_observation);
+   void InsertRangeData(const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin);
+
 
   void SubmapToProto(
       int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,

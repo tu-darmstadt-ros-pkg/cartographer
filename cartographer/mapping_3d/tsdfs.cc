@@ -125,8 +125,7 @@ std::vector<int> TSDFs::insertion_indices() const {
   }
   return {size() - 1};
 }
-void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
-                            const transform::Rigid3d& pose_observation)
+void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin)
 {
     CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
@@ -144,22 +143,11 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
         i++;
     }
 
-    chisel::Transform transform;
-    transform.translation()(0) = pose_observation.translation()(0);
-    transform.translation()(1) = pose_observation.translation()(1);
-    transform.translation()(2) = pose_observation.translation()(2);
 
     chisel::Vec3 chisel_pose;
-    chisel_pose.x() = pose_observation.translation()(0);
-    chisel_pose.y() = pose_observation.translation()(1);
-    chisel_pose.z() = pose_observation.translation()(2) + 0.5; //todo(kdaun) add correct transform
-
-    chisel::Quaternion quat;
-    quat.x() = pose_observation.rotation().x();
-    quat.y() = pose_observation.rotation().y();
-    quat.z() = pose_observation.rotation().z();
-    quat.w() = pose_observation.rotation().w();
-    transform.linear() = quat.toRotationMatrix();
+    chisel_pose.x() = sensor_origin.x();
+    chisel_pose.y() = sensor_origin.y();
+    chisel_pose.z() = sensor_origin.z();
 
     for(int insertion_index : insertion_indices())
     {
@@ -168,10 +156,9 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
-        //todo(kdaun) transform data before to avoid double transformation
         //min and max dist are already filtered in the local trajectory builder
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
-                                         transform, chisel_pose, 0.0f, HUGE_VALF);
+                                         chisel_pose, 0.0f, HUGE_VALF);
         chisel_tsdf->UpdateMeshes();
         submap->end_range_data_index = num_range_data_;
     }

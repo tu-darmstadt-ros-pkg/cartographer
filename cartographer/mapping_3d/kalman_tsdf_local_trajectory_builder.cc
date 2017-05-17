@@ -106,18 +106,23 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
   }
   ++num_accumulated_;
 
+  //We estimate the sensor position over the trajectory by averaging the pose at the
+  //start and the end of the accumulation, does not hold for multiple range scanners
+  Eigen::Vector3f sensor_origin = 0.5*(pose_prediction.cast<float>() * origin
+                                       + first_pose_prediction_.cast<float>() * origin);
+
   if (num_accumulated_ >= options_.scans_per_accumulation()) {
     num_accumulated_ = 0;
     return AddAccumulatedRangeData(
         time, sensor::TransformRangeData(accumulated_range_data_,
-                                         tracking_delta.inverse()));
+                                         tracking_delta.inverse()), sensor_origin);
   }
   return nullptr;
 }
 
 std::unique_ptr<KalmanTSDFLocalTrajectoryBuilder::InsertionResult>
 KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
-    const common::Time time, const sensor::RangeData& range_data_in_tracking) {
+    const common::Time time, const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin) {
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
@@ -199,7 +204,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
                                   pose_observation.cast<float>())};
 
   return InsertIntoSubmap(time, range_data_in_tracking, pose_observation,
-                          covariance_estimate);
+                          covariance_estimate, sensor_origin);
 }
 
 void KalmanTSDFLocalTrajectoryBuilder::AddOdometerData(
@@ -230,10 +235,9 @@ void KalmanTSDFLocalTrajectoryBuilder::AddTrajectoryNodeIndex(
 }
 
 std::unique_ptr<KalmanTSDFLocalTrajectoryBuilder::InsertionResult>
-KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
-    const common::Time time, const sensor::RangeData& range_data_in_tracking,
+KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(const common::Time time, const sensor::RangeData& range_data_in_tracking,
     const transform::Rigid3d& pose_observation,
-    const kalman_filter::PoseCovariance& covariance_estimate) {
+    const kalman_filter::PoseCovariance& covariance_estimate, const Eigen::Vector3f& sensor_origin) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
   }
@@ -244,7 +248,8 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
 
-  submaps_->InsertRangeData(range_data_in_tracking, pose_observation);
+  submaps_->InsertRangeData(sensor::TransformRangeData(
+      range_data_in_tracking, pose_observation.cast<float>()), sensor_origin);
 
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,
