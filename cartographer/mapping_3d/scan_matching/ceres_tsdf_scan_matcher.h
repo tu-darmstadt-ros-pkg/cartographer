@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <open_chisel/Chisel.h>
-#include <open_chisel/MultiDistVoxel.h>
+#include <open_chisel/DistVoxel.h>
 
 #include "Eigen/Core"
 #include "cartographer/common/lua_parameter_dictionary.h"
@@ -38,7 +38,7 @@ proto::CeresScanMatcherOptions CreateCeresTSDFScanMatcherOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
 using PointCloudAndTSDFPointers =
-    std::pair<const sensor::PointCloud*, const chisel::ChiselConstPtr<chisel::MultiDistVoxel>>;
+    std::pair<const sensor::PointCloud*, const chisel::ChiselConstPtr<chisel::DistVoxel>>;
 
 // This scan matcher uses Ceres to align scans with an existing map.
 class CeresTSDFScanMatcher {

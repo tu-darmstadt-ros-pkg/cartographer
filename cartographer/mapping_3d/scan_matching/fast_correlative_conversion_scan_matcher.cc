@@ -57,7 +57,7 @@ CreateFastCorrelativeConversionScanMatcherOptions(
 class PrecomputationGridStack {
  public:
   PrecomputationGridStack(
-      const chisel::ChiselPtr<chisel::MultiDistVoxel>& hybrid_grid,
+      const chisel::ChiselPtr<chisel::DistVoxel>& hybrid_grid,
       const proto::FastCorrelativeScanMatcherOptions& options) {
     CHECK_GE(options.branch_and_bound_depth(), 1);
     CHECK_GE(options.full_resolution_depth(), 1);
@@ -89,7 +89,7 @@ class PrecomputationGridStack {
   std::vector<PrecomputationGrid> precomputation_grids_;
 };
 
-int ComputeVoxelWidth(chisel::ChiselConstPtr<chisel::MultiDistVoxel> hybrid_grid){
+int ComputeVoxelWidth(chisel::ChiselConstPtr<chisel::DistVoxel> hybrid_grid){
     Eigen::Vector3f volume_size = hybrid_grid->GetChunkManager().GetBoundingBox().max -
             hybrid_grid->GetChunkManager().GetBoundingBox().min;
     Eigen::Vector3f volume_size_in_voxels =
@@ -99,7 +99,7 @@ int ComputeVoxelWidth(chisel::ChiselConstPtr<chisel::MultiDistVoxel> hybrid_grid
     return int(width_in_voxels_);
 }
 
-FastCorrelativeConversionScanMatcher::FastCorrelativeConversionScanMatcher(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid,
+FastCorrelativeConversionScanMatcher::FastCorrelativeConversionScanMatcher(const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid,
     const std::vector<mapping::TrajectoryNode>& nodes,
     const proto::FastCorrelativeScanMatcherOptions& options)
     : options_(options),

@@ -110,7 +110,12 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
   //start and the end of the accumulation, does not hold for multiple range scanners
   Eigen::Vector3f sensor_origin = 0.5*(pose_prediction.cast<float>() * origin
                                        + first_pose_prediction_.cast<float>() * origin);
+  sensor_origin = origin;
 
+  //sensor hector tracker
+  /*sensor_origin.x() = 0.245138;
+  sensor_origin.y() = 0.150075;
+  sensor_origin.z() = 0.622001;*/
   if (num_accumulated_ >= options_.scans_per_accumulation()) {
     num_accumulated_ = 0;
     return AddAccumulatedRangeData(
@@ -247,9 +252,11 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(const common::Time time, cons
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
-
+//todo(kdaun) check sensor transform as well?
+  LOG(INFO)<<"pose "<<pose_observation.cast<float>();
+  LOG(INFO)<<"before pose sensor "<<sensor_origin;
   submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()), sensor_origin);
+      range_data_in_tracking, pose_observation.cast<float>()), pose_observation.cast<float>()*sensor_origin);
 
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,

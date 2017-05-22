@@ -238,7 +238,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
-   /* problem.AddResidualBlock(
+    problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
             new scan_matching::TSDFOccupiedSpaceCostFunctor(
@@ -247,9 +247,10 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->low_resolution_matching_grid()),
+                submaps_->GetChiselPtr(submaps_->matching_index()),1,
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
-        nullptr, batch.state.translation.data(), batch.state.rotation.data());*/
+        nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
     if (i == 0) {
       problem.SetParameterBlockConstant(batch.state.translation.data());
@@ -355,6 +356,10 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
   const transform::Rigid3f transform_median =
       ( batches_[n_batches/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
+  //sensor hector tracker -0.245138    0.150075    0.622001
+  /*sensor_origin.x() = 0.245138;
+  sensor_origin.y() = 0.150075;
+  sensor_origin.z() = 0.622001;*/
   return AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking, sensor_origin);
 }
@@ -406,8 +411,11 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
+
+  LOG(INFO)<<"pose "<<pose_observation.cast<float>();
+  LOG(INFO)<<"before pose sensor "<<sensor_origin;
   submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()), sensor_origin);
+      range_data_in_tracking, pose_observation.cast<float>()), pose_observation.cast<float>()*sensor_origin);
 
   const kalman_filter::PoseCovariance kCovariance =
       1e-7 * kalman_filter::PoseCovariance::Identity();

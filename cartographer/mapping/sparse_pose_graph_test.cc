@@ -32,7 +32,7 @@ class FakeSubmaps : public Submaps {
   int size() const override { LOG(FATAL) << "Not implemented."; }
 
 
-  const chisel::ChiselPtr<chisel::MultiDistVoxel> GetChiselPtr(int index) const override{
+  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
 
   void SubmapToProto(int, const std::vector<mapping::TrajectoryNode>&,

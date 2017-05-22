@@ -23,7 +23,7 @@
 #include "cartographer/mapping/probability_values.h"
 #include "glog/logging.h"
 #include <open_chisel/Chisel.h>
-#include <open_chisel/MultiDistVoxel.h>
+#include <open_chisel/DistVoxel.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -49,7 +49,7 @@ Eigen::Array3i CellIndexAtHalfResolution(const Eigen::Array3i& cell_index) {
 
 }  // namespace
 
-PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid) {
+PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid) {
   PrecomputationGrid result(hybrid_grid->GetChunkManager().GetResolution(), hybrid_grid->GetChunkManager().GetOrigin());
 
   const chisel::AABB& bounding_box = hybrid_grid->GetChunkManager().GetBoundingBox();
@@ -67,7 +67,7 @@ PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::M
           for(float z = min.z(); z < max.z(); z = z + resolution)
           {
               const auto& chunk_manager = hybrid_grid->GetChunkManager();
-              const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
+              const chisel::DistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
               if(voxel) {
                 if(voxel->IsValid()) {
                     const float sdf = std::abs(voxel->GetSDF());

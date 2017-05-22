@@ -76,7 +76,7 @@ TSDF::TSDF(const float high_resolution, const float low_resolution,
                float max_truncation_distance, Eigen::Vector3i& chunk_size)
     : mapping::Submap(origin, begin_range_data_index),
     max_truncation_distance(max_truncation_distance){
-    tsdf.reset(new chisel::Chisel<chisel::MultiDistVoxel>
+    tsdf.reset(new chisel::Chisel<chisel::DistVoxel>
                (chunk_size, high_resolution, false, origin));
 }
 
@@ -102,7 +102,7 @@ const TSDF* TSDFs::Get(int index) const {
   return submaps_[index].get();
 }
 
-const chisel::ChiselPtr<chisel::MultiDistVoxel> TSDFs::GetChiselPtr(int index) const {
+const chisel::ChiselPtr<chisel::DistVoxel> TSDFs::GetChiselPtr(int index) const {
     CHECK_GE(index, 0);
     CHECK_LT(index, size());
     return submaps_[index]->tsdf;
@@ -143,7 +143,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, con
         i++;
     }
 
-
+    //LOG(INFO)<<"sensor: "<<sensor_origin;
     chisel::Vec3 chisel_pose;
     chisel_pose.x() = sensor_origin.x();
     chisel_pose.y() = sensor_origin.y();
@@ -151,7 +151,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, con
 
     for(int insertion_index : insertion_indices())
     {
-        chisel::ChiselPtr<chisel::MultiDistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
+        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
         TSDF* submap = submaps_[insertion_index].get();
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
@@ -172,7 +172,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, con
 
 
 std::vector<Eigen::Array4i> TSDFs::ExtractVoxelData(
-    const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid, const transform::Rigid3f& transform,
+    const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid, const transform::Rigid3f& transform,
     Eigen::Array2i* min_index, Eigen::Array2i* max_index) const {
   std::vector<Eigen::Array4i> voxel_indices_and_probabilities;
   const float resolution = hybrid_grid->GetChunkManager().GetResolution();
@@ -189,7 +189,7 @@ std::vector<Eigen::Array4i> TSDFs::ExtractVoxelData(
           for(float z = min.z(); z < max.z(); z = z + resolution)
           {
               const auto& chunk_manager = hybrid_grid->GetChunkManager();
-              const chisel::MultiDistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
+              const chisel::DistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
               if(voxel) {
                 if(voxel->IsValid()) {
                     const float sdf = voxel->GetSDF();
@@ -220,6 +220,7 @@ string TSDFs::ComputePixelValues(
   string cell_data;
   cell_data.reserve(2 * accumulated_pixel_data.size());
   for (const PixelData& pixel : accumulated_pixel_data) {
+
       if(pixel.count == 0)
       {
           cell_data.push_back(0);  // value
@@ -228,10 +229,10 @@ string TSDFs::ComputePixelValues(
       }
       int cell_value = pixel.probability_sum/pixel.count;
       if(cell_value > 115) cell_value = 255; //todo(kdaun) replace by sound occlusion formulation
-      else
-          cell_value = 0;
+      else if(pixel.count > 5) cell_value = 0;
+      else cell_value = 100;
       cell_data.push_back(cell_value);  // value
-      cell_data.push_back(70);  // alpha
+      cell_data.push_back(90);  // alpha
   }
   return cell_data;
 }
@@ -268,7 +269,7 @@ void TSDFs::SubmapToProto(
     mapping::proto::SubmapQuery::Response* const response) const {
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
-    const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid = Get(index)->tsdf;
+    const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid = Get(index)->tsdf;
     response->set_resolution(hybrid_grid->GetChunkManager().GetResolution());
 
     // Compute a bounding box for the texture.

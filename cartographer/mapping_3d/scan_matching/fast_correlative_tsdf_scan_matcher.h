@@ -32,7 +32,7 @@
 #include "cartographer/mapping_3d/scan_matching/candidate.h"
 #include "cartographer/sensor/point_cloud.h"
 #include <open_chisel/Chisel.h>
-#include <open_chisel/MultiDistVoxel.h>
+#include <open_chisel/DistVoxel.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -49,7 +49,7 @@ class PrecomputationGridStack;
 class FastCorrelativeTSDFScanMatcher {
  public:
   FastCorrelativeTSDFScanMatcher(
-      chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid,
+      chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid,
       const std::vector<mapping::TrajectoryNode>& nodes,
       const proto::FastCorrelativeScanMatcherOptions& options);
   ~FastCorrelativeTSDFScanMatcher();

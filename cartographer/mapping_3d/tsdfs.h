@@ -50,7 +50,7 @@ struct TSDF : public mapping::Submap {
          const Eigen::Vector3f& origin, int begin_range_data_index,
          float max_truncation_distance, Eigen::Vector3i& chunk_size);
 
-  chisel::ChiselPtr<chisel::MultiDistVoxel> tsdf;
+  chisel::ChiselPtr<chisel::DistVoxel> tsdf;
   bool finished = false;
   float max_truncation_distance;
   std::vector<int> trajectory_node_indices;
@@ -67,7 +67,7 @@ class TSDFs : public mapping::Submaps {
   TSDFs& operator=(const TSDFs&) = delete;
 
   const TSDF* Get(int index) const override;
-  const chisel::ChiselPtr<chisel::MultiDistVoxel> GetChiselPtr(int index) const override;
+  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override;
   const chisel::ProjectionIntegrator* GetIntegrator(int index) const;
   int size() const override;
 
@@ -111,7 +111,7 @@ class TSDFs : public mapping::Submaps {
   // last is the corresponding probability value. We batch them together like
   // this to only have one vector and have better cache locality.
   std::vector<Eigen::Array4i> ExtractVoxelData(
-      const chisel::ChiselPtr<chisel::MultiDistVoxel> hybrid_grid, const transform::Rigid3f& transform,
+      const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid, const transform::Rigid3f& transform,
       Eigen::Array2i* min_index, Eigen::Array2i* max_index) const;
   // Builds texture data containing interleaved value and alpha for the
   // visualization from 'accumulated_pixel_data'.

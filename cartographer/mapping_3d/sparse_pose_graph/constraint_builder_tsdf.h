@@ -107,7 +107,7 @@ class ConstraintBuilderTSDF {
 
  private:
   struct SubmapScanMatcher {
-    chisel::ChiselConstPtr<chisel::MultiDistVoxel> hybrid_grid;
+    chisel::ChiselConstPtr<chisel::DistVoxel> hybrid_grid;
     std::unique_ptr<scan_matching::FastCorrelativeTSDFScanMatcher>
         fast_correlative_scan_matcher;
   };
@@ -117,14 +117,14 @@ class ConstraintBuilderTSDF {
   void ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
       int submap_index,
       const std::vector<mapping::TrajectoryNode>& submap_nodes,
-      chisel::ChiselPtr<chisel::MultiDistVoxel> submap, std::function<void()> work_item)
+      chisel::ChiselPtr<chisel::DistVoxel> submap, std::function<void()> work_item)
       REQUIRES(mutex_);
 
   // Constructs the scan matcher for a 'submap', then schedules its work items.
   void ConstructSubmapScanMatcher(
       int submap_index,
       const std::vector<mapping::TrajectoryNode>& submap_nodes,
-      chisel::ChiselPtr<chisel::MultiDistVoxel> submap) EXCLUDES(mutex_);
+      chisel::ChiselPtr<chisel::DistVoxel> submap) EXCLUDES(mutex_);
 
   // Returns the scan matcher for a submap, which has to exist.
   const SubmapScanMatcher* GetSubmapScanMatcher(int submap_index)

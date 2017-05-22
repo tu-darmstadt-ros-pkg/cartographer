@@ -41,7 +41,7 @@
 #include "cartographer/mapping_2d/probability_grid.h"
 #include "glog/logging.h"
 #include <open_chisel/Chisel.h>
-#include <open_chisel/MultiDistVoxel.h>
+#include <open_chisel/DistVoxel.h>
 
 namespace cartographer {
 namespace mapping {
@@ -123,7 +123,7 @@ class Submaps {
       return dummy_ptr;
   }*/
 
-  virtual const chisel::ChiselPtr<chisel::MultiDistVoxel> GetChiselPtr(int index) const = 0;
+  virtual const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const = 0;
 
   // Returns the number of Submaps.
   virtual int size() const = 0;

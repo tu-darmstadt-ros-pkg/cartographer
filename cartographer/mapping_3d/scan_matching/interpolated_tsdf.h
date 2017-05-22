@@ -37,7 +37,7 @@ namespace scan_matching {
 
 class InterpolatedTSDF {
  public:
-  explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf,
+  explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::DistVoxel> tsdf,
                             float max_truncation_distance)
       : tsdf_(tsdf), max_truncation_distance_(max_truncation_distance) {}
 
@@ -59,14 +59,14 @@ class InterpolatedTSDF {
     ComputeInterpolationDataPoints(x, y, z, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
 
     const auto& chunk_manager = tsdf_->GetChunkManager();
-    const chisel::MultiDistVoxel* v111 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z1), coarsening_factor);
-    const chisel::MultiDistVoxel* v112 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z2), coarsening_factor);
-    const chisel::MultiDistVoxel* v121 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z1), coarsening_factor);
-    const chisel::MultiDistVoxel* v122 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z2), coarsening_factor);
-    const chisel::MultiDistVoxel* v211 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z1), coarsening_factor);
-    const chisel::MultiDistVoxel* v212 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z2), coarsening_factor);
-    const chisel::MultiDistVoxel* v221 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z1), coarsening_factor);
-    const chisel::MultiDistVoxel* v222 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z2), coarsening_factor);
+    const chisel::DistVoxel* v111 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z1), coarsening_factor);
+    const chisel::DistVoxel* v112 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z2), coarsening_factor);
+    const chisel::DistVoxel* v121 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z1), coarsening_factor);
+    const chisel::DistVoxel* v122 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z2), coarsening_factor);
+    const chisel::DistVoxel* v211 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z1), coarsening_factor);
+    const chisel::DistVoxel* v212 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z2), coarsening_factor);
+    const chisel::DistVoxel* v221 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z1), coarsening_factor);
+    const chisel::DistVoxel* v222 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z2), coarsening_factor);
 
     const double q111 = getVoxelSDF(v111);
     const double q112 = getVoxelSDF(v112);
@@ -109,7 +109,7 @@ class InterpolatedTSDF {
            q1;
   }
 
-  chisel::ChiselConstPtr<chisel::MultiDistVoxel> getTSDF() const {
+  chisel::ChiselConstPtr<chisel::DistVoxel> getTSDF() const {
       return tsdf_;
   }
 
@@ -152,7 +152,7 @@ class InterpolatedTSDF {
   }
 
 
-  double getVoxelSDF(const chisel::MultiDistVoxel* voxel) const
+  double getVoxelSDF(const chisel::DistVoxel* voxel) const
   {
       double q = max_truncation_distance_;
       if(voxel) {
@@ -163,7 +163,7 @@ class InterpolatedTSDF {
       return q;
   }
 
-  chisel::ChiselConstPtr<chisel::MultiDistVoxel> tsdf_;
+  chisel::ChiselConstPtr<chisel::DistVoxel> tsdf_;
   float max_truncation_distance_;
 };
 

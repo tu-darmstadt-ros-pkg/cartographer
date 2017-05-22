@@ -157,7 +157,7 @@ void ConstraintBuilderConversion::WhenDone(
 void ConstraintBuilderConversion::ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
     const int submap_index,
     const std::vector<mapping::TrajectoryNode>& submap_nodes,
-    chisel::ChiselPtr<chisel::MultiDistVoxel> submap, const std::function<void()> work_item) {
+    chisel::ChiselPtr<chisel::DistVoxel> submap, const std::function<void()> work_item) {
   if (submap_scan_matchers_[submap_index].fast_correlative_scan_matcher !=
       nullptr) {
     thread_pool_->Schedule(work_item);
@@ -174,7 +174,7 @@ void ConstraintBuilderConversion::ScheduleSubmapScanMatcherConstructionAndQueueW
 void ConstraintBuilderConversion::ConstructSubmapScanMatcher(
     const int submap_index,
     const std::vector<mapping::TrajectoryNode>& submap_nodes,
-    chisel::ChiselPtr<chisel::MultiDistVoxel> submap) {
+    chisel::ChiselPtr<chisel::DistVoxel> submap) {
   auto submap_scan_matcher =
       common::make_unique<scan_matching::FastCorrelativeConversionScanMatcher>(
           submap, submap_nodes,
