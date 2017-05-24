@@ -47,6 +47,10 @@ class TrajectoryBuilder {
     common::Time time = common::Time::min();
     transform::Rigid3d pose = transform::Rigid3d::Identity();
     sensor::PointCloud point_cloud;
+    std::vector<sensor::PointCloud> point_cloud_batched_warped;
+    std::vector<sensor::PointCloud> point_cloud_batched_raw;
+    std::vector<transform::Rigid3d> sensor_trajectory_warped;
+    std::vector<transform::Rigid3d> sensor_trajectory_raw;
   };
 
   TrajectoryBuilder() {}

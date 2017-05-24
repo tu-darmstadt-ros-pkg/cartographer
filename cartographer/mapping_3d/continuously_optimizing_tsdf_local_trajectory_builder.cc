@@ -190,11 +190,14 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
               low_resolution_filtered_points,
               State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}, origin));
   } else {
+
     const Batch& last_batch = batches_.back();
+    State state = PredictState(last_batch.state, last_batch.time, time);
+    LOG(INFO)<<"batch state: t="<<state.translation[0]<<" "<<state.translation[1]<<" "<<state.translation[2]<<" v= "<<state.velocity[0]<<" "<<state.velocity[1]<<" "<<state.velocity[2];
     batches_.push_back(Batch(
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
-        PredictState(last_batch.state, last_batch.time, time),
+        state,
                        origin
     ));
   }
@@ -499,6 +502,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& star
       Eigen::Map<const Eigen::Vector3d>(start_state.velocity.data()) +
       start_rotation * result.delta_velocity -
       gravity_constant_ * delta_time_seconds * Eigen::Vector3d::UnitZ();
+
 
   return State{
       {{orientation.w(), orientation.x(), orientation.y(), orientation.z()}},
