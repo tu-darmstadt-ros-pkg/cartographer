@@ -29,6 +29,7 @@
 #include "cartographer/transform/transform.h"
 #include "cartographer/transform/transform_interpolation_buffer.h"
 #include "glog/logging.h"
+#include "covariance_cost_functor.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -171,19 +172,31 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
   const sensor::PointCloud low_resolution_filtered_points =
       low_resolution_adaptive_voxel_filter.Filter(point_cloud);
 
+
+  /*
+  std::cout<<"====================================="<<std::endl;
+
+  std::cout<<origin.x()<<" "<<origin.y()<<" "<<origin.z()<<std::endl;
+  for(auto p : point_cloud )
+  {
+      std::cout<<p.x()<<" "<<p.y()<<" "<<p.z()<<std::endl;
+  }
+  std::cout<<"====================================="<<std::endl;*/
+
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
     batches_.push_back(
-        Batch{time, point_cloud, high_resolution_filtered_points,
+        Batch(time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
-              State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}});
+              State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}, origin));
   } else {
     const Batch& last_batch = batches_.back();
-    batches_.push_back(Batch{
+    batches_.push_back(Batch(
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
         PredictState(last_batch.state, last_batch.time, time),
-    });
+                       origin
+    ));
   }
   ++num_accumulated_;
 
@@ -252,6 +265,8 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
+
+
     if (i == 0) {
       problem.SetParameterBlockConstant(batch.state.translation.data());
       problem.AddParameterBlock(batch.state.velocity.data(), 3);
@@ -282,6 +297,17 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
         nullptr, batches_[i - 1].state.translation.data(),
         batches_[i].state.translation.data(),
         batches_[i - 1].state.velocity.data());
+
+
+
+    /*double covariance_weight = 0.000005;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<CovarianceCostFunction, 1, 3, 3>(
+            new CovarianceCostFunction(
+                covariance_weight,
+                batches_[i].covariance)),
+        nullptr, batches_[i - 1].state.translation.data(),
+        batches_[i].state.translation.data());*/
 
     const IntegrateImuResult<double> result =
         IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
@@ -331,13 +357,33 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
 
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_solver_options_, &problem, &summary);
+  int i_batch = 0;
+
+  const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+  for (const auto& batch : batches_) {
+
+      //LOG(INFO)<<"Batch "<<i_batch<<"  "<<num_accumulated_;
+
+    if(i_batch +1 % 30 == 0 && i_batch > 0 &&  num_accumulated_ +1 % 30 == 0)
+    {
+        const transform::Rigid3f transform_i =
+            (optimized_pose.inverse() * batches_[i_batch].state.ToRigid()).cast<float>();
+        const transform::Rigid3f transform_before =
+            (optimized_pose.inverse() * batches_[i_batch-29].state.ToRigid()).cast<float>();
+
+        const transform::Rigid3f transform =transform_before.inverse()*transform_i;
+    //LOG(INFO)<<"Batch "<<i_batch<<" "<<num_accumulated_<<"  "<<transform;
+    }
+    i_batch++;
+  }
+
   if (num_accumulated_ < options_.scans_per_accumulation()) {
     return nullptr;
   }
 
   num_accumulated_ = 0;
 
-  const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 

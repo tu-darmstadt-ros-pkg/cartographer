@@ -80,12 +80,28 @@ class ContinuouslyOptimizingTSDFLocalTrajectoryBuilder
     }
   };
 
-  struct Batch {
+  class Batch {
+
+  public:
+      Batch(common::Time time, sensor::PointCloud points, sensor::PointCloud high_resolution_filtered_points,
+            sensor::PointCloud low_resolution_filtered_points, State state, const Eigen::Vector3f& origin):
+          time(time), points(points), high_resolution_filtered_points(high_resolution_filtered_points),
+          low_resolution_filtered_points(low_resolution_filtered_points), state(state), covariance(Eigen::Matrix3f::Zero())
+      {
+          for(const Eigen::Vector3f& p : points)
+          {
+              Eigen::Vector3f delta = (origin - p).normalized(); //thats not the exact covariance, but makes sense here I think todo(kdaun) does it?
+              covariance += delta*delta.transpose();
+          }
+          covariance = (1./points.size())*covariance;
+
+      }
     common::Time time;
     sensor::PointCloud points;
     sensor::PointCloud high_resolution_filtered_points;
     sensor::PointCloud low_resolution_filtered_points;
     State state;
+    Eigen::Matrix3f covariance;
   };
 
   struct OdometerData {
