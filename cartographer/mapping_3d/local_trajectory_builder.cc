@@ -31,9 +31,11 @@ std::unique_ptr<LocalTrajectoryBuilderInterface> CreateLocalTrajectoryBuilder(
     case proto::LocalTrajectoryBuilderOptions::KALMAN:
       return common::make_unique<KalmanLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
-    case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
-      return common::make_unique<OptimizingLocalTrajectoryBuilder>(
-          local_trajectory_builder_options);
+      case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
+        return common::make_unique<OptimizingLocalTrajectoryBuilder>(
+            local_trajectory_builder_options);
+      case proto::LocalTrajectoryBuilderOptions::CONTINUOUSLY_OPTIMIZING:
+        LOG(FATAL)<<"CONTINUOUSLY_OPTIMIZING not implemented for default submap";
   }
   LOG(FATAL);
 }

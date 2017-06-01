@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_
-#define CARTOGRAPHER_MAPPING_3D_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_CONTINUOUSLY_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_
+#define CARTOGRAPHER_MAPPING_3D_CONTINUOUSLY_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_
 
 #include <array>
 #include <deque>
@@ -37,17 +37,17 @@ namespace mapping_3d {
 
 // Batches up some sensor data and optimizes them in one go to get a locally
 // consistent trajectory.
-class OptimizingTSDFLocalTrajectoryBuilder
+class ContinuouslyOptimizingTSDFLocalTrajectoryBuilder
     : public LocalTSDFTrajectoryBuilderInterface {
  public:
-  explicit OptimizingTSDFLocalTrajectoryBuilder(
+  explicit ContinuouslyOptimizingTSDFLocalTrajectoryBuilder(
       const proto::LocalTrajectoryBuilderOptions& options);
-  ~OptimizingTSDFLocalTrajectoryBuilder() override;
+  ~ContinuouslyOptimizingTSDFLocalTrajectoryBuilder() override;
 
-  OptimizingTSDFLocalTrajectoryBuilder(const OptimizingTSDFLocalTrajectoryBuilder&) =
+  ContinuouslyOptimizingTSDFLocalTrajectoryBuilder(const ContinuouslyOptimizingTSDFLocalTrajectoryBuilder&) =
       delete;
-  OptimizingTSDFLocalTrajectoryBuilder& operator=(
-      const OptimizingTSDFLocalTrajectoryBuilder&) = delete;
+  ContinuouslyOptimizingTSDFLocalTrajectoryBuilder& operator=(
+      const ContinuouslyOptimizingTSDFLocalTrajectoryBuilder&) = delete;
 
   void AddImuData(common::Time time, const Eigen::Vector3d& linear_acceleration,
                   const Eigen::Vector3d& angular_velocity) override;
@@ -56,7 +56,6 @@ class OptimizingTSDFLocalTrajectoryBuilder
       const sensor::PointCloud& ranges) override;
   void AddOdometerData(const common::Time time,
                        const transform::Rigid3d& pose) override;
-  void AddTrajectoryNodeIndex(int trajectory_node_index) override;
   const mapping_3d::TSDFs* submaps() const override;
   const PoseEstimate& pose_estimate() const override;
 
@@ -80,12 +79,28 @@ class OptimizingTSDFLocalTrajectoryBuilder
     }
   };
 
-  struct Batch {
+  class Batch {
+
+  public:
+      Batch(common::Time time, sensor::PointCloud points, sensor::PointCloud high_resolution_filtered_points,
+            sensor::PointCloud low_resolution_filtered_points, State state, const Eigen::Vector3f& origin):
+          time(time), points(points), high_resolution_filtered_points(high_resolution_filtered_points),
+          low_resolution_filtered_points(low_resolution_filtered_points), state(state), covariance(Eigen::Matrix3f::Zero())
+      {
+          for(const Eigen::Vector3f& p : points)
+          {
+              Eigen::Vector3f delta = (origin - p).normalized(); //thats not the exact covariance, but makes sense here I think todo(kdaun) does it?
+              covariance += delta*delta.transpose();
+          }
+          covariance = (1./points.size())*covariance;
+
+      }
     common::Time time;
     sensor::PointCloud points;
     sensor::PointCloud high_resolution_filtered_points;
     sensor::PointCloud low_resolution_filtered_points;
     State state;
+    Eigen::Matrix3f covariance;
   };
 
   struct OdometerData {
@@ -113,6 +128,7 @@ class OptimizingTSDFLocalTrajectoryBuilder
   const ceres::Solver::Options ceres_solver_options_;
   std::unique_ptr<mapping_3d::TSDFs> submaps_;
   int num_accumulated_;
+  int num_map_update_;
 
   std::deque<Batch> batches_;
   double gravity_constant_ = 9.8;
@@ -127,4 +143,4 @@ class OptimizingTSDFLocalTrajectoryBuilder
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_CONTINUOUSLY_OPTIMIZING_TSDF_LOCAL_TRAJECTORY_BUILDER_H_

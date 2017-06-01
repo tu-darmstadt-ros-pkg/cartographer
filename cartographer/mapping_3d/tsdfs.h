@@ -47,7 +47,7 @@ proto::TSDFsOptions CreateTSDFsOptions(
 
 struct TSDF : public mapping::Submap {
   TSDF(float high_resolution, float low_resolution,
-         const Eigen::Vector3f& origin, int begin_range_data_index,
+         const transform::Rigid3d& origin, int begin_range_data_index,
          float max_truncation_distance, Eigen::Vector3i& chunk_size);
 
   chisel::ChiselPtr<chisel::DistVoxel> tsdf;
@@ -75,11 +75,13 @@ class TSDFs : public mapping::Submaps {
   // be inserted.
   std::vector<int> insertion_indices() const;
   //Inserts 'range_data' into the Submap collection.
-   void InsertRangeData(const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin);
+   void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
+                        const Eigen::Quaterniond &gravity_alignment,
+                        const Eigen::Vector3f& sensor_origin);
 
 
   void SubmapToProto(
-      int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
+      int index,
       const transform::Rigid3d& global_submap_pose,
       mapping::proto::SubmapQuery::Response* response) const override;
 
@@ -90,9 +92,6 @@ class TSDFs : public mapping::Submaps {
 
   // Returns the 'low_resolution' HybridGrid to be used for matching.
   const HybridGrid& low_resolution_matching_grid() const;*/
-
-  // Adds a node to be used when visualizing the submap.
-  void AddTrajectoryNodeIndex(int trajectory_node_index);
 
  private:
   struct PixelData {
@@ -118,7 +117,7 @@ class TSDFs : public mapping::Submaps {
   string ComputePixelValues(
       const std::vector<PixelData>& accumulated_pixel_data) const;
 
-  void AddTSDF(const Eigen::Vector3f& origin);
+  void AddTSDF(const transform::Rigid3d &origin);
 
   const proto::TSDFsOptions options_;
 

@@ -21,9 +21,11 @@
 namespace cartographer {
 namespace mapping_3d {
 
-GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(const proto::LocalTrajectoryBuilderOptions& options,
-    cartographer::mapping_3d::SparsePoseGraphConversion *sparse_pose_graph)
-    : sparse_pose_graph_(sparse_pose_graph),
+GlobalTSDFTrajectoryBuilder::GlobalTSDFTrajectoryBuilder(
+        const proto::LocalTrajectoryBuilderOptions& options,
+        const int trajectory_id, SparsePoseGraphConversion* sparse_pose_graph)
+    : trajectory_id_(trajectory_id),
+      sparse_pose_graph_(sparse_pose_graph),
       local_trajectory_builder_(CreateLocalTSDFTrajectoryBuilder(options)) {}
 
 GlobalTSDFTrajectoryBuilder::~GlobalTSDFTrajectoryBuilder() {}
@@ -37,8 +39,8 @@ void GlobalTSDFTrajectoryBuilder::AddImuData(
     const Eigen::Vector3d& angular_velocity) {
   local_trajectory_builder_->AddImuData(time, linear_acceleration,
                                         angular_velocity);
-  sparse_pose_graph_->AddImuData(local_trajectory_builder_->submaps(), time,
-                                 linear_acceleration, angular_velocity);
+  sparse_pose_graph_->AddImuData(trajectory_id_, time, linear_acceleration,
+                                 angular_velocity);
 }
 
 void GlobalTSDFTrajectoryBuilder::AddRangefinderData(
@@ -51,12 +53,11 @@ void GlobalTSDFTrajectoryBuilder::AddRangefinderData(
     return;
   }
 
-  const int trajectory_node_index = sparse_pose_graph_->AddScan(
+  sparse_pose_graph_->AddScan(
       insertion_result->time, insertion_result->range_data_in_tracking,
       insertion_result->pose_observation, insertion_result->covariance_estimate,
-      insertion_result->submaps, insertion_result->matching_submap,
+      trajectory_id_, insertion_result->matching_submap,
       insertion_result->insertion_submaps);
-  local_trajectory_builder_->AddTrajectoryNodeIndex(trajectory_node_index);
 }
 
 void GlobalTSDFTrajectoryBuilder::AddOdometerData(const common::Time time,

@@ -106,7 +106,7 @@ TEST_F(OptimizationProblemTest, ReducesNoise) {
   const transform::Rigid3d kSubmap0Transform = transform::Rigid3d::Identity();
   const transform::Rigid3d kSubmap2Transform = transform::Rigid3d::Rotation(
       Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitZ()));
-  const mapping::Submaps* const kTrajectory = nullptr;
+  const int kTrajectoryId = 0;
 
   struct NoisyNode {
     transform::Rigid3d ground_truth_pose;
@@ -122,23 +122,23 @@ TEST_F(OptimizationProblemTest, ReducesNoise) {
   for (const NoisyNode& node : test_data) {
     const transform::Rigid3d pose =
         AddNoise(node.ground_truth_pose, node.noise);
-    optimization_problem_.AddImuData(kTrajectory, now,
+    optimization_problem_.AddImuData(kTrajectoryId, now,
                                      Eigen::Vector3d::UnitZ() * 9.81,
                                      Eigen::Vector3d::Zero());
-    optimization_problem_.AddTrajectoryNode(kTrajectory, now, pose);
+    optimization_problem_.AddTrajectoryNode(kTrajectoryId, now, pose);
     now += common::FromSeconds(0.01);
   }
 
   std::vector<OptimizationProblem::Constraint> constraints;
   for (int j = 0; j != kNumNodes; ++j) {
     constraints.push_back(OptimizationProblem::Constraint{
-        0, j,
+        mapping::SubmapId{0, 0}, mapping::NodeId{0, j},
         OptimizationProblem::Constraint::Pose{
             AddNoise(test_data[j].ground_truth_pose, test_data[j].noise),
             Eigen::Matrix<double, 6, 6>::Identity()}});
     // We add an additional independent, but equally noisy observation.
     constraints.push_back(OptimizationProblem::Constraint{
-        1, j,
+        mapping::SubmapId{0, 1}, mapping::NodeId{0, j},
         OptimizationProblem::Constraint::Pose{
             AddNoise(test_data[j].ground_truth_pose,
                      RandomYawOnlyTransform(0.2, 0.3)),
@@ -146,19 +146,16 @@ TEST_F(OptimizationProblemTest, ReducesNoise) {
     // We add very noisy data with high covariance (i.e. small Lambda) to verify
     // it is mostly ignored.
     constraints.push_back(OptimizationProblem::Constraint{
-        2, j,
+        mapping::SubmapId{0, 2}, mapping::NodeId{0, j},
         OptimizationProblem::Constraint::Pose{
             kSubmap2Transform.inverse() * test_data[j].ground_truth_pose *
                 RandomTransform(1e3, 3.),
             1e-9 * Eigen::Matrix<double, 6, 6>::Identity()}});
   }
 
-  std::vector<transform::Rigid3d> submap_transforms = {
-      kSubmap0Transform, kSubmap0Transform, kSubmap2Transform};
-
   double translation_error_before = 0.;
   double rotation_error_before = 0.;
-  const auto& node_data = optimization_problem_.node_data();
+  const auto& node_data = optimization_problem_.node_data().at(0);
   for (int j = 0; j != kNumNodes; ++j) {
     translation_error_before += (test_data[j].ground_truth_pose.translation() -
                                  node_data[j].point_cloud_pose.translation())
@@ -168,7 +165,10 @@ TEST_F(OptimizationProblemTest, ReducesNoise) {
                             node_data[j].point_cloud_pose);
   }
 
-  optimization_problem_.Solve(constraints, &submap_transforms);
+  optimization_problem_.AddSubmap(kTrajectoryId, kSubmap0Transform);
+  optimization_problem_.AddSubmap(kTrajectoryId, kSubmap0Transform);
+  optimization_problem_.AddSubmap(kTrajectoryId, kSubmap2Transform);
+  optimization_problem_.Solve(constraints);
 
   double translation_error_after = 0.;
   double rotation_error_after = 0.;

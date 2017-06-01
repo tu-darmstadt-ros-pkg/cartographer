@@ -91,21 +91,21 @@ KalmanLocalTrajectoryBuilder::AddRangefinderData(
   const transform::Rigid3f tracking_delta =
       first_pose_prediction_.inverse() * pose_prediction.cast<float>();
   const sensor::RangeData range_data_in_first_tracking =
-      sensor::TransformRangeData(sensor::RangeData{origin, ranges, {}, {}},
+      sensor::TransformRangeData(sensor::RangeData{origin, ranges, {}},
                                  tracking_delta);
   for (const Eigen::Vector3f& hit : range_data_in_first_tracking.returns) {
     const Eigen::Vector3f delta = hit - range_data_in_first_tracking.origin;
     const float range = delta.norm();
-    if (range >= options_.laser_min_range()) {
-      if (range <= options_.laser_max_range()) {
+    if (range >= options_.min_range()) {
+      if (range <= options_.max_range()) {
         accumulated_range_data_.returns.push_back(hit);
       } else {
-        // We insert a ray cropped to 'laser_max_range' as a miss for hits
-        // beyond the maximum range. This way the free space up to the maximum
-        // range will be updated.
+        // We insert a ray cropped to 'max_range' as a miss for hits beyond the
+        // maximum range. This way the free space up to the maximum range will
+        // be updated.
         accumulated_range_data_.misses.push_back(
             range_data_in_first_tracking.origin +
-            options_.laser_max_range() / range * delta);
+            options_.max_range() / range * delta);
       }
     }
   }
@@ -126,9 +126,9 @@ KalmanLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.laser_voxel_filter_size()),
+                            options_.voxel_filter_size()),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
-                            options_.laser_voxel_filter_size())};
+                            options_.voxel_filter_size())};
 
   if (filtered_range_data.returns.empty()) {
     LOG(WARNING) << "Dropped empty range data.";
@@ -140,19 +140,24 @@ KalmanLocalTrajectoryBuilder::AddAccumulatedRangeData(
   pose_tracker_->GetPoseEstimateMeanAndCovariance(
       time, &pose_prediction, &unused_covariance_prediction);
 
-  transform::Rigid3d initial_ceres_pose = pose_prediction;
+  const Submap* const matching_submap =
+      submaps_->Get(submaps_->matching_index());
+  transform::Rigid3d initial_ceres_pose =
+      matching_submap->local_pose.inverse() * pose_prediction;
   sensor::AdaptiveVoxelFilter adaptive_voxel_filter(
       options_.high_resolution_adaptive_voxel_filter_options());
   const sensor::PointCloud filtered_point_cloud_in_tracking =
       adaptive_voxel_filter.Filter(filtered_range_data.returns);
   if (options_.kalman_local_trajectory_builder_options()
           .use_online_correlative_scan_matching()) {
+    // We take a copy since we use 'intial_ceres_pose' as an output argument.
+    const transform::Rigid3d initial_pose = initial_ceres_pose;
     real_time_correlative_scan_matcher_->Match(
-        pose_prediction, filtered_point_cloud_in_tracking,
-        submaps_->high_resolution_matching_grid(), &initial_ceres_pose);
+        initial_pose, filtered_point_cloud_in_tracking,
+        matching_submap->high_resolution_hybrid_grid, &initial_ceres_pose);
   }
 
-  transform::Rigid3d pose_observation;
+  transform::Rigid3d pose_observation_in_submap;
   ceres::Solver::Summary summary;
 
   sensor::AdaptiveVoxelFilter low_resolution_adaptive_voxel_filter(
@@ -161,10 +166,12 @@ KalmanLocalTrajectoryBuilder::AddAccumulatedRangeData(
       low_resolution_adaptive_voxel_filter.Filter(filtered_range_data.returns);
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
                              {{&filtered_point_cloud_in_tracking,
-                               &submaps_->high_resolution_matching_grid()},
+                               &matching_submap->high_resolution_hybrid_grid},
                               {&low_resolution_point_cloud_in_tracking,
-                               &submaps_->low_resolution_matching_grid()}},
-                             &pose_observation, &summary);
+                               &matching_submap->low_resolution_hybrid_grid}},
+                             &pose_observation_in_submap, &summary);
+  const transform::Rigid3d pose_observation =
+      matching_submap->local_pose * pose_observation_in_submap;
   pose_tracker_->AddPoseObservation(
       time, pose_observation,
       options_.kalman_local_trajectory_builder_options()
@@ -206,11 +213,6 @@ KalmanLocalTrajectoryBuilder::pose_estimate() const {
   return last_pose_estimate_;
 }
 
-void KalmanLocalTrajectoryBuilder::AddTrajectoryNodeIndex(
-    int trajectory_node_index) {
-  submaps_->AddTrajectoryNodeIndex(trajectory_node_index);
-}
-
 std::unique_ptr<KalmanLocalTrajectoryBuilder::InsertionResult>
 KalmanLocalTrajectoryBuilder::InsertIntoSubmap(
     const common::Time time, const sensor::RangeData& range_data_in_tracking,
@@ -225,11 +227,13 @@ KalmanLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
-  submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()));
+  submaps_->InsertRangeData(
+      sensor::TransformRangeData(range_data_in_tracking,
+                                 pose_observation.cast<float>()),
+      pose_tracker_->gravity_orientation());
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,
-      submaps_.get(), matching_submap, insertion_submaps});
+      matching_submap, insertion_submaps});
 }
 
 }  // namespace mapping_3d

@@ -40,24 +40,6 @@ namespace cartographer {
 namespace mapping_3d {
 namespace sparse_pose_graph {
 
-namespace {
-
-std::vector<mapping::TrajectoryNode> ComputeSubmapNodes(
-    const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
-    const TSDF* const submap, int scan_index,
-    const transform::Rigid3d& initial_relative_pose) {
-  std::vector<mapping::TrajectoryNode> submap_nodes;
-  for (const int node_index : submap->trajectory_node_indices) {
-    submap_nodes.push_back(mapping::TrajectoryNode{
-        trajectory_nodes[node_index].constant_data,
-        transform::Rigid3d(initial_relative_pose *
-                           trajectory_nodes[scan_index].pose.inverse() *
-                           trajectory_nodes[node_index].pose)});
-  }
-  return submap_nodes;
-}
-
-}  // namespace
 
 ConstraintBuilderConversion::ConstraintBuilderConversion(
     const mapping::sparse_pose_graph::proto::ConstraintBuilderOptions& options,
@@ -77,68 +59,57 @@ ConstraintBuilderConversion::~ConstraintBuilderConversion() {
 }
 
 void ConstraintBuilderConversion::MaybeAddConstraint(
-    const int submap_index, const TSDF* const submap, const int scan_index,
-    const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
-    const transform::Rigid3d& initial_relative_pose) {
-  if (initial_relative_pose.translation().norm() >
-      options_.max_constraint_distance()) {
-    return;
+    const mapping::SubmapId& submap_id, const TSDF* const submap,
+        const mapping::NodeId& node_id,
+        const sensor::CompressedPointCloud* const compressed_point_cloud,
+        const std::vector<mapping::TrajectoryNode>& submap_nodes,
+        const transform::Rigid3d& initial_pose) {
+    if (initial_pose.translation().norm() > options_.max_constraint_distance()) {
+      return;
+    }
+    if (sampler_.Pulse()) {
+      common::MutexLocker locker(&mutex_);
+      constraints_.emplace_back();
+      auto* const constraint = &constraints_.back();
+      ++pending_computations_[current_computation_];
+      const int current_computation = current_computation_;
+      ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
+          submap_id, submap_nodes, submap->tsdf,
+          [=]() EXCLUDES(mutex_) {
+            ComputeConstraint(submap_id, submap, node_id,
+                              false,   /* match_full_submap */
+                              nullptr, /* trajectory_connectivity */
+                              compressed_point_cloud, initial_pose, constraint);
+            FinishComputation(current_computation);
+          });
+    }
   }
-  if (sampler_.Pulse()) {
-    const auto submap_nodes = ComputeSubmapNodes(
-        trajectory_nodes, submap, scan_index, initial_relative_pose);
+
+void ConstraintBuilderConversion::MaybeAddGlobalConstraint(
+    const mapping::SubmapId& submap_id, const TSDF* const submap,
+        const mapping::NodeId& node_id,
+        const sensor::CompressedPointCloud* const compressed_point_cloud,
+        const std::vector<mapping::TrajectoryNode>& submap_nodes,
+        const Eigen::Quaterniond& gravity_alignment,
+        mapping::TrajectoryConnectivity* const trajectory_connectivity) {
     common::MutexLocker locker(&mutex_);
-    CHECK_LE(scan_index, current_computation_);
     constraints_.emplace_back();
     auto* const constraint = &constraints_.back();
     ++pending_computations_[current_computation_];
     const int current_computation = current_computation_;
-    const auto* const point_cloud =
-        &trajectory_nodes[scan_index].constant_data->range_data_3d.returns;
     ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
-        submap_index, submap_nodes, submap->tsdf,
+        submap_id, submap_nodes, submap->tsdf,
         [=]() EXCLUDES(mutex_) {
-          ComputeConstraint(submap_index, submap, scan_index,
-                            nullptr, /* scan_trajectory */
-                            nullptr, /* submap_trajectory */
-                            false,   /* match_full_submap */
-                            nullptr, /* trajectory_connectivity */
-                            point_cloud, initial_relative_pose, constraint);
+          ComputeConstraint(
+              submap_id, submap, node_id, true, /* match_full_submap */
+              trajectory_connectivity, compressed_point_cloud,
+              transform::Rigid3d::Rotation(gravity_alignment), constraint);
           FinishComputation(current_computation);
         });
-  }
 }
 
-void ConstraintBuilderConversion::MaybeAddGlobalConstraint(
-    const int submap_index, const TSDF* const submap, const int scan_index,
-    const mapping::Submaps* scan_trajectory,
-    const mapping::Submaps* submap_trajectory,
-    mapping::TrajectoryConnectivity* trajectory_connectivity,
-    const std::vector<mapping::TrajectoryNode>& trajectory_nodes) {
-  const auto submap_nodes = ComputeSubmapNodes(
-      trajectory_nodes, submap, scan_index, transform::Rigid3d::Identity());
+void ConstraintBuilderConversion::NotifyEndOfScan() {
   common::MutexLocker locker(&mutex_);
-  CHECK_LE(scan_index, current_computation_);
-  constraints_.emplace_back();
-  auto* const constraint = &constraints_.back();
-  ++pending_computations_[current_computation_];
-  const int current_computation = current_computation_;
-  const auto* const point_cloud =
-      &trajectory_nodes[scan_index].constant_data->range_data_3d.returns;
-  ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
-      submap_index, submap_nodes, submap->tsdf,
-      [=]() EXCLUDES(mutex_) {
-        ComputeConstraint(submap_index, submap, scan_index, submap_trajectory,
-                          scan_trajectory, true, /* match_full_submap */
-                          trajectory_connectivity, point_cloud,
-                          transform::Rigid3d::Identity(), constraint);
-        FinishComputation(current_computation);
-      });
-}
-
-void ConstraintBuilderConversion::NotifyEndOfScan(const int scan_index) {
-  common::MutexLocker locker(&mutex_);
-  CHECK_EQ(current_computation_, scan_index);
   ++current_computation_;
 }
 
@@ -155,130 +126,131 @@ void ConstraintBuilderConversion::WhenDone(
 }
 
 void ConstraintBuilderConversion::ScheduleSubmapScanMatcherConstructionAndQueueWorkItem(
-    const int submap_index,
+    const mapping::SubmapId& submap_id,
     const std::vector<mapping::TrajectoryNode>& submap_nodes,
     chisel::ChiselPtr<chisel::DistVoxel> submap, const std::function<void()> work_item) {
-  if (submap_scan_matchers_[submap_index].fast_correlative_scan_matcher !=
-      nullptr) {
-    thread_pool_->Schedule(work_item);
-  } else {
-    submap_queued_work_items_[submap_index].push_back(work_item);
-    if (submap_queued_work_items_[submap_index].size() == 1) {
-      thread_pool_->Schedule(
-          std::bind(std::mem_fn(&ConstraintBuilderConversion::ConstructSubmapScanMatcher),
-                    this, submap_index, submap_nodes, submap));
-    }
+if (submap_scan_matchers_[submap_id].fast_correlative_scan_matcher !=
+    nullptr) {
+  thread_pool_->Schedule(work_item);
+} else {
+  submap_queued_work_items_[submap_id].push_back(work_item);
+  if (submap_queued_work_items_[submap_id].size() == 1) {
+    thread_pool_->Schedule([=]() {
+      ConstructSubmapScanMatcher(submap_id, submap_nodes, submap);
+    });
   }
+}
 }
 
 void ConstraintBuilderConversion::ConstructSubmapScanMatcher(
-    const int submap_index,
+    const mapping::SubmapId& submap_id,
     const std::vector<mapping::TrajectoryNode>& submap_nodes,
     chisel::ChiselPtr<chisel::DistVoxel> submap) {
-  auto submap_scan_matcher =
-      common::make_unique<scan_matching::FastCorrelativeConversionScanMatcher>(
-          submap, submap_nodes,
-          options_.fast_correlative_scan_matcher_options_3d());
-  common::MutexLocker locker(&mutex_);
-  submap_scan_matchers_[submap_index] = {submap,
-                                         std::move(submap_scan_matcher)};
-  for (const std::function<void()>& work_item :
-       submap_queued_work_items_[submap_index]) {
-    thread_pool_->Schedule(work_item);
-  }
-  submap_queued_work_items_.erase(submap_index);
+    auto submap_scan_matcher =
+        common::make_unique<scan_matching::FastCorrelativeConversionScanMatcher>(
+            submap, submap_nodes,
+            options_.fast_correlative_scan_matcher_options_3d());
+    common::MutexLocker locker(&mutex_);
+    submap_scan_matchers_[submap_id] = {submap, std::move(submap_scan_matcher)};
+    for (const std::function<void()>& work_item :
+         submap_queued_work_items_[submap_id]) {
+      thread_pool_->Schedule(work_item);
+    }
+    submap_queued_work_items_.erase(submap_id);
 }
 
 const ConstraintBuilderConversion::SubmapScanMatcher*
-ConstraintBuilderConversion::GetSubmapScanMatcher(const int submap_index) {
-  common::MutexLocker locker(&mutex_);
-  const SubmapScanMatcher* submap_scan_matcher =
-      &submap_scan_matchers_[submap_index];
-  CHECK(submap_scan_matcher->fast_correlative_scan_matcher != nullptr);
-  return submap_scan_matcher;
+ConstraintBuilderConversion::GetSubmapScanMatcher(const mapping::SubmapId& submap_id) {
+common::MutexLocker locker(&mutex_);
+const SubmapScanMatcher* submap_scan_matcher =
+    &submap_scan_matchers_[submap_id];
+CHECK(submap_scan_matcher->fast_correlative_scan_matcher != nullptr);
+return submap_scan_matcher;
 }
 
 void ConstraintBuilderConversion::ComputeConstraint(
-    const int submap_index, const TSDF* const submap, const int scan_index,
-    const mapping::Submaps* scan_trajectory,
-    const mapping::Submaps* submap_trajectory, bool match_full_submap,
+    const mapping::SubmapId& submap_id, const TSDF* const submap, const mapping::NodeId& node_id,bool match_full_submap,
     mapping::TrajectoryConnectivity* trajectory_connectivity,
     const sensor::CompressedPointCloud* const compressed_point_cloud,
-    const transform::Rigid3d& initial_relative_pose,
+    const transform::Rigid3d& initial_pose,
     std::unique_ptr<OptimizationProblem::Constraint>* constraint) {
-  const transform::Rigid3d initial_pose =
-      submap->local_pose() * initial_relative_pose;
-  const SubmapScanMatcher* const submap_scan_matcher =
-      GetSubmapScanMatcher(submap_index);
-  const sensor::PointCloud point_cloud = compressed_point_cloud->Decompress();
-  const sensor::PointCloud filtered_point_cloud =
-      adaptive_voxel_filter_.Filter(point_cloud);
+    const SubmapScanMatcher* const submap_scan_matcher =
+        GetSubmapScanMatcher(submap_id);
+    const sensor::PointCloud point_cloud = compressed_point_cloud->Decompress();
+    const sensor::PointCloud filtered_point_cloud =
+        adaptive_voxel_filter_.Filter(point_cloud);
 
-  // The 'constraint_transform' (i <- j) is computed from:
-  // - a 'filtered_point_cloud' in j,
-  // - the initial guess 'initial_pose' for (map <- j),
-  // - the result 'pose_estimate' of Match() (map <- j).
-  // - the submap->pose() (map <- i)
-  float score = options_.min_score();
-  transform::Rigid3d pose_estimate = transform::Rigid3d::Identity();
+    // The 'constraint_transform' (submap 'i' <- scan 'j') is computed from the
+    // initial guess 'initial_pose' for (submap 'i' <- scan 'j') and a
+    // 'filtered_point_cloud' in 'j'.
+    float score = 0.;
+    transform::Rigid3d pose_estimate;
 
-  if (match_full_submap) {
-    if (submap_scan_matcher->fast_correlative_scan_matcher->MatchFullSubmap(
-            initial_pose.rotation(), filtered_point_cloud, point_cloud,
-            options_.global_localization_min_score(), &score, &pose_estimate)) {
-      CHECK_GT(score, options_.global_localization_min_score());
-      trajectory_connectivity->Connect(scan_trajectory, submap_trajectory);
+    if (match_full_submap) {
+      if (submap_scan_matcher->fast_correlative_scan_matcher->MatchFullSubmap(
+              initial_pose.rotation(), filtered_point_cloud, point_cloud,
+              options_.global_localization_min_score(), &score, &pose_estimate)) {
+        CHECK_GT(score, options_.global_localization_min_score());
+        CHECK_GE(node_id.trajectory_id, 0);
+        CHECK_GE(submap_id.trajectory_id, 0);
+        trajectory_connectivity->Connect(node_id.trajectory_id,
+                                         submap_id.trajectory_id);
+      } else {
+        return;
+      }
     } else {
-      return;
+      if (submap_scan_matcher->fast_correlative_scan_matcher->Match(
+              initial_pose, filtered_point_cloud, point_cloud,
+              options_.min_score(), &score, &pose_estimate)) {
+        // We've reported a successful local match.
+        CHECK_GT(score, options_.min_score());
+      } else {
+        return;
+      }
     }
-  } else {
-    if (submap_scan_matcher->fast_correlative_scan_matcher->Match(
-            initial_pose, filtered_point_cloud, point_cloud,
-            options_.min_score(), &score, &pose_estimate)) {
-      // We've reported a successful local match.
-      CHECK_GT(score, options_.min_score());
-    } else {
-      return;
+    {
+      common::MutexLocker locker(&mutex_);
+      score_histogram_.Add(score);
+    }
+
+    // Use the CSM estimate as both the initial and previous pose. This has the
+    // effect that, in the absence of better information, we prefer the original
+    // CSM estimate.
+    ceres::Solver::Summary unused_summary;
+    transform::Rigid3d constraint_transform;
+    ceres_scan_matcher_.Match(
+        pose_estimate, pose_estimate,
+        {{&filtered_point_cloud, submap_scan_matcher->hybrid_grid}},
+                1,1,
+        &constraint_transform, &unused_summary);
+    //todo(kdaun) params
+
+    constraint->reset(new OptimizationProblem::Constraint{
+        submap_id,
+        node_id,
+        {constraint_transform,
+         1. / std::sqrt(options_.lower_covariance_eigenvalue_bound()) *
+             kalman_filter::PoseCovariance::Identity()},
+        OptimizationProblem::Constraint::INTER_SUBMAP});
+
+    if (options_.log_matches()) {
+      std::ostringstream info;
+      info << "Node " << node_id << " with " << filtered_point_cloud.size()
+           << " points on submap " << submap_id << std::fixed;
+      if (match_full_submap) {
+        info << " matches";
+      } else {
+        const transform::Rigid3d difference =
+            initial_pose.inverse() * constraint_transform;
+        info << " differs by translation " << std::setprecision(2)
+             << difference.translation().norm() << " rotation "
+             << std::setprecision(3) << transform::GetAngle(difference);
+      }
+      info << " with score " << std::setprecision(1) << 100. * score << "%.";
+      LOG(INFO) << info.str();
     }
   }
-  {
-    common::MutexLocker locker(&mutex_);
-    score_histogram_.Add(score);
-  }
 
-  // Use the CSM estimate as both the initial and previous pose. This has the
-  // effect that, in the absence of better information, we prefer the original
-  // CSM estimate.
-  ceres::Solver::Summary unused_summary;
-  ceres_scan_matcher_.Match(
-      pose_estimate, pose_estimate,
-      {{&filtered_point_cloud, submap_scan_matcher->hybrid_grid}},
-      submap->max_truncation_distance, 1, &pose_estimate, &unused_summary);
-
-
-  const transform::Rigid3d constraint_transform =
-      submap->local_pose().inverse() * pose_estimate;
-  constraint->reset(new OptimizationProblem::Constraint{
-      submap_index,
-      scan_index,
-      {constraint_transform,
-       1. / std::sqrt(options_.lower_covariance_eigenvalue_bound()) *
-           kalman_filter::PoseCovariance::Identity()},
-      OptimizationProblem::Constraint::INTER_SUBMAP});
-
-  if (options_.log_matches()) {
-    const transform::Rigid3d difference =
-        initial_pose.inverse() * pose_estimate;
-    std::ostringstream info;
-    info << "Scan index " << scan_index << " with "
-         << filtered_point_cloud.size() << " points on submap " << submap_index
-         << " differs by translation " << std::fixed << std::setprecision(2)
-         << difference.translation().norm() << " rotation "
-         << std::setprecision(3) << transform::GetAngle(difference)
-         << " with score " << std::setprecision(1) << 100. * score << "%.";
-    LOG(INFO) << info.str();
-  }
-}
 
 void ConstraintBuilderConversion::FinishComputation(const int computation_index) {
   Result result;
@@ -312,6 +284,7 @@ void ConstraintBuilderConversion::FinishComputation(const int computation_index)
     (*callback)(result);
   }
 }
+
 
 int ConstraintBuilderConversion::GetNumFinishedScans() {
   common::MutexLocker locker(&mutex_);

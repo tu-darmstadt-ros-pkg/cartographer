@@ -52,7 +52,6 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTSDFTrajectoryBuilderInterf
       const sensor::PointCloud& ranges) override;
   void AddOdometerData(common::Time time,
                        const transform::Rigid3d& pose) override;
-  void AddTrajectoryNodeIndex(int trajectory_node_index) override;
   const mapping_3d::TSDFs* submaps() const override;
   const PoseEstimate& pose_estimate() const override;
 

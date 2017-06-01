@@ -72,12 +72,16 @@ proto::TSDFsOptions CreateTSDFsOptions(
 
 
 TSDF::TSDF(const float high_resolution, const float low_resolution,
-               const Eigen::Vector3f& origin, const int begin_range_data_index,
+               const transform::Rigid3d& origin, const int begin_range_data_index,
                float max_truncation_distance, Eigen::Vector3i& chunk_size)
-    : mapping::Submap(origin, begin_range_data_index),
-    max_truncation_distance(max_truncation_distance){
-    tsdf.reset(new chisel::Chisel<chisel::DistVoxel>
-               (chunk_size, high_resolution, false, origin));
+    : mapping::Submap(origin),
+      max_truncation_distance(max_truncation_distance){
+    chisel::Vec3 tsdf_origin;
+    tsdf_origin.x() = origin.translation().x();
+    tsdf_origin.y() = origin.translation().y();
+    tsdf_origin.z() = origin.translation().z();
+      tsdf.reset(new chisel::Chisel<chisel::DistVoxel>
+               (chunk_size, high_resolution, false, tsdf_origin));
 }
 
 
@@ -85,7 +89,7 @@ TSDFs::TSDFs()
 {
   // We always want to have at least one tsdf which we can return,
   // and will create it at the origin in absence of a better choice.
-  AddTSDF(Eigen::Vector3f::Zero());
+  AddTSDF(transform::Rigid3d::Identity());
 }
 
 
@@ -93,7 +97,7 @@ TSDFs::TSDFs(const proto::TSDFsOptions& options)
     : options_(options) {
   // We always want to have at least one tsdf which we can return,
   // and will create it at the origin in absence of a better choice.
-  AddTSDF(Eigen::Vector3f::Zero());
+  AddTSDF(transform::Rigid3d::Identity());
 }
 
 const TSDF* TSDFs::Get(int index) const {
@@ -125,7 +129,9 @@ std::vector<int> TSDFs::insertion_indices() const {
   }
   return {size() - 1};
 }
-void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin)
+void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
+                            const Eigen::Quaterniond& gravity_alignment,
+                            const Eigen::Vector3f& sensor_origin)
 {
     CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
@@ -152,7 +158,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, con
     for(int insertion_index : insertion_indices())
     {
         chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
-        TSDF* submap = submaps_[insertion_index].get();
+        //TSDF* submap = submaps_[insertion_index].get();
         const chisel::ProjectionIntegrator& projection_integrator =
                 projection_integrators_[insertion_index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
@@ -160,12 +166,12 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking, con
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
                                          chisel_pose, 0.0f, HUGE_VALF);
         chisel_tsdf->UpdateMeshes();
-        submap->end_range_data_index = num_range_data_;
     }
 
     ++num_range_data_in_last_submap_;
     if (num_range_data_in_last_submap_ == options_.num_range_data()) {
-      AddTSDF(range_data_in_tracking.origin);
+      AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
+                                 gravity_alignment)); //todo(kdaun) check transforms
     }
 }
 
@@ -264,8 +270,7 @@ std::vector<TSDFs::PixelData> TSDFs::AccumulatePixelData(
 
 
 void TSDFs::SubmapToProto(
-    int index, const std::vector<mapping::TrajectoryNode>& trajectory_nodes,
-    const transform::Rigid3d& global_submap_pose,
+    int index, const transform::Rigid3d& global_submap_pose,
     mapping::proto::SubmapQuery::Response* const response) const {
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
@@ -276,9 +281,7 @@ void TSDFs::SubmapToProto(
     Eigen::Array2i min_index(INT_MAX, INT_MAX);
     Eigen::Array2i max_index(INT_MIN, INT_MIN);
     const std::vector<Eigen::Array4i> voxel_indices_and_probabilities =
-        ExtractVoxelData(hybrid_grid,
-                         (global_submap_pose * Get(index)->local_pose().inverse())
-                             .cast<float>(),
+        ExtractVoxelData(hybrid_grid, global_submap_pose.cast<float>(),
                          &min_index, &max_index);
 
     const int width = max_index.y() - min_index.y() + 1;
@@ -299,17 +302,8 @@ void TSDFs::SubmapToProto(
                                global_submap_pose.translation().z())));
 }
 
-void TSDFs::AddTrajectoryNodeIndex(const int trajectory_node_index) {
-  for (int i = 0; i != size(); ++i) {
-    TSDF& submap = *submaps_[i];
-    if (submap.end_range_data_index == num_range_data_ &&
-        submap.begin_range_data_index <= num_range_data_ - 1) {
-      submap.trajectory_node_indices.push_back(trajectory_node_index);
-    }
-  }
-}
 
-void TSDFs::AddTSDF(const Eigen::Vector3f& origin) {
+void TSDFs::AddTSDF(const transform::Rigid3d& origin) {
   if (size() > 1) {
     TSDF* submap = submaps_[size() - 2].get();
     CHECK(!submap->finished);

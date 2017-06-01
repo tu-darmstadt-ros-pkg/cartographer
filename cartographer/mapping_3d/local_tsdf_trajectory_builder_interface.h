@@ -39,7 +39,6 @@ class LocalTSDFTrajectoryBuilderInterface {
     sensor::RangeData range_data_in_tracking;
     transform::Rigid3d pose_observation;
     kalman_filter::PoseCovariance covariance_estimate;
-    const TSDFs* submaps;
     const TSDF* matching_submap;
     std::vector<const TSDF*> insertion_submaps;
   };
@@ -63,7 +62,6 @@ class LocalTSDFTrajectoryBuilderInterface {
   // Register a 'trajectory_node_index' from the SparsePoseGraph corresponding
   // to the latest inserted laser scan. This is used to remember which
   // trajectory node should be used to visualize a Submap.
-  virtual void AddTrajectoryNodeIndex(int trajectory_node_index) = 0;
   virtual const mapping_3d::TSDFs* submaps() const = 0;
   virtual const PoseEstimate& pose_estimate() const = 0;
 

@@ -57,15 +57,11 @@ PoseCovariance Embed3D(const Pose2DCovariance& embedded_covariance,
 PoseCovariance BuildPoseCovariance(double translational_variance,
                                    double rotational_variance);
 
-// Deserializes the 'proto_matrix' into a PoseCovariance.
-PoseCovariance PoseCovarianceFromProtoMatrix(
-    const sensor::proto::Matrix& proto_matrix);
-
 proto::PoseTrackerOptions CreatePoseTrackerOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
 // A Kalman filter for a 3D state of position and orientation.
-// Includes functions to update from IMU and laser scan matches.
+// Includes functions to update from IMU and range data matches.
 class PoseTracker {
  public:
   enum {
@@ -121,6 +117,10 @@ class PoseTracker {
   Distribution GetBelief(common::Time time);
 
   const mapping::OdometryStateTracker::OdometryStates& odometry_states() const;
+
+  Eigen::Quaterniond gravity_orientation() const {
+    return imu_tracker_.orientation();
+  }
 
  private:
   // Returns the distribution required to initialize the KalmanFilter.

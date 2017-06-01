@@ -29,6 +29,7 @@
 #include "cartographer/transform/transform.h"
 #include "cartographer/transform/transform_interpolation_buffer.h"
 #include "glog/logging.h"
+#include "covariance_cost_functor.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -102,22 +103,23 @@ class RelativeTranslationAndYawCostFunction {
 
 }  // namespace
 
-OptimizingTSDFLocalTrajectoryBuilder::OptimizingTSDFLocalTrajectoryBuilder(
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::ContinuouslyOptimizingTSDFLocalTrajectoryBuilder(
     const proto::LocalTrajectoryBuilderOptions& options)
     : options_(options),
       ceres_solver_options_(common::CreateCeresSolverOptions(
           options.ceres_scan_matcher_options().ceres_solver_options())),
       submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       num_accumulated_(0),
+      num_map_update_(0),
       motion_filter_(options.motion_filter_options()) {}
 
-OptimizingTSDFLocalTrajectoryBuilder::~OptimizingTSDFLocalTrajectoryBuilder() {}
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::~ContinuouslyOptimizingTSDFLocalTrajectoryBuilder() {}
 
-const mapping_3d::TSDFs* OptimizingTSDFLocalTrajectoryBuilder::submaps() const {
+const mapping_3d::TSDFs* ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::submaps() const {
   return submaps_.get();
 }
 
-void OptimizingTSDFLocalTrajectoryBuilder::AddImuData(
+void ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddImuData(
     const common::Time time, const Eigen::Vector3d& linear_acceleration,
     const Eigen::Vector3d& angular_velocity) {
   imu_data_.push_back(ImuData{
@@ -126,14 +128,14 @@ void OptimizingTSDFLocalTrajectoryBuilder::AddImuData(
   RemoveObsoleteSensorData();
 }
 
-void OptimizingTSDFLocalTrajectoryBuilder::AddOdometerData(
+void ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddOdometerData(
     const common::Time time, const transform::Rigid3d& pose) {
   odometer_data_.push_back(OdometerData{time, pose});
   RemoveObsoleteSensorData();
 }
 
-std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
-OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
+std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
     const common::Time time, const Eigen::Vector3f& origin,
     const sensor::PointCloud& ranges) {
   CHECK_GT(ranges.size(), 0);
@@ -144,8 +146,8 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
   for (const Eigen::Vector3f& hit : ranges) {
     const Eigen::Vector3f delta = hit - origin;
     const float range = delta.norm();
-    if (range >= options_.laser_min_range()) {
-      if (range <= options_.laser_max_range()) {
+    if (range >= options_.min_range()) {
+      if (range <= options_.max_range()) {
         point_cloud.push_back(hit);
       }
     }
@@ -171,27 +173,43 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
   const sensor::PointCloud low_resolution_filtered_points =
       low_resolution_adaptive_voxel_filter.Filter(point_cloud);
 
+
+  /*
+  std::cout<<"====================================="<<std::endl;
+
+  std::cout<<origin.x()<<" "<<origin.y()<<" "<<origin.z()<<std::endl;
+  for(auto p : point_cloud )
+  {
+      std::cout<<p.x()<<" "<<p.y()<<" "<<p.z()<<std::endl;
+  }
+  std::cout<<"====================================="<<std::endl;*/
+
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
     batches_.push_back(
-        Batch{time, point_cloud, high_resolution_filtered_points,
+        Batch(time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
-              State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}});
+              State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}, origin));
   } else {
+
     const Batch& last_batch = batches_.back();
-    batches_.push_back(Batch{
+    State state = PredictState(last_batch.state, last_batch.time, time);
+   // LOG(INFO)<<"batch state: t="<<state.translation[0]<<" "<<state.translation[1]<<" "<<state.translation[2]<<" v= "<<state.velocity[0]<<" "<<state.velocity[1]<<" "<<state.velocity[2];
+    batches_.push_back(Batch(
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
-        PredictState(last_batch.state, last_batch.time, time),
-    });
+        state,
+                       origin
+    ));
   }
   ++num_accumulated_;
+  ++num_map_update_;
 
   RemoveObsoleteSensorData();
   return MaybeOptimize(time, origin);
 }
 
-void OptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
+void ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
   if (imu_data_.empty()) {
     batches_.clear();
     return;
@@ -214,11 +232,11 @@ void OptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
   }
 }
 
-std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
-OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, const Eigen::Vector3f& origin) {
-  // TODO(hrapp): Make the number of optimizations configurable.
-  if (num_accumulated_ < options_.scans_per_accumulation() &&
-      num_accumulated_ % 10 != 0) {
+std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, const Eigen::Vector3f& origin) {
+
+
+  if (num_accumulated_ % options_.optimizing_local_trajectory_builder_options().scans_per_optimization_update() != 0) {
     return nullptr;
   }
 
@@ -238,7 +256,7 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
-   /* problem.AddResidualBlock(
+    problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
             new scan_matching::TSDFOccupiedSpaceCostFunctor(
@@ -247,9 +265,12 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->low_resolution_matching_grid()),
+                submaps_->GetChiselPtr(submaps_->matching_index()),2,
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
-        nullptr, batch.state.translation.data(), batch.state.rotation.data());*/
+        nullptr, batch.state.translation.data(), batch.state.rotation.data());
+
+
 
     if (i == 0) {
       problem.SetParameterBlockConstant(batch.state.translation.data());
@@ -281,6 +302,17 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
         nullptr, batches_[i - 1].state.translation.data(),
         batches_[i].state.translation.data(),
         batches_[i - 1].state.velocity.data());
+
+
+
+    /*double covariance_weight = 0.000005;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<CovarianceCostFunction, 1, 3, 3>(
+            new CovarianceCostFunction(
+                covariance_weight,
+                batches_[i].covariance)),
+        nullptr, batches_[i - 1].state.translation.data(),
+        batches_[i].state.translation.data());*/
 
     const IntegrateImuResult<double> result =
         IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
@@ -330,47 +362,79 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_solver_options_, &problem, &summary);
-  if (num_accumulated_ < options_.scans_per_accumulation()) {
-    return nullptr;
-  }
-
-  num_accumulated_ = 0;
+  int i_batch = 0;
 
   const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+  /*
+  for (const auto& batch : batches_) {
+
+      //LOG(INFO)<<"Batch "<<i_batch<<"  "<<num_accumulated_;
+
+    if(i_batch +1 % 30 == 0 && i_batch > 0 &&  num_accumulated_ +1 % 30 == 0)
+    {
+        const transform::Rigid3f transform_i =
+            (optimized_pose.inverse() * batches_[i_batch].state.ToRigid()).cast<float>();
+        const transform::Rigid3f transform_before =
+            (optimized_pose.inverse() * batches_[i_batch-29].state.ToRigid()).cast<float>();
+
+        const transform::Rigid3f transform =transform_before.inverse()*transform_i;
+    //LOG(INFO)<<"Batch "<<i_batch<<" "<<num_accumulated_<<"  "<<transform;
+    }
+    i_batch++;
+  }
+*/
+
+
+  if (num_map_update_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
+          || num_accumulated_ < options_.scans_per_accumulation())
+  {
+      return nullptr;
+  }
+  num_map_update_ = 0;
+
+
+
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 
+  i_batch = 0;
   for (const auto& batch : batches_) {
     const transform::Rigid3f transform =
         (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
     for (const Eigen::Vector3f& point : batch.points) {
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
+    i_batch++;
+    if(i_batch == options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
+            && num_accumulated_ != options_.scans_per_accumulation())
+        break;
   }
-
 
   //We estimate the sensor position over the trajectory by using the median batch transform,
   //does not hold for multiple range scanners
-  int n_batches = batches_.size();
 
   const transform::Rigid3f transform_median =
-      ( batches_[n_batches/2].state.ToRigid()).cast<float>();
+      ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
-
+  //sensor hector tracker -0.245138    0.150075    0.622001
+  //sensor_origin.x() = 0.245138;
+  //sensor_origin.y() = 0.150075;
+  //sensor_origin.z() = 0.622001;
   return AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking, sensor_origin);
+
 }
 
-std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
-OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
+std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
     const common::Time time, const transform::Rigid3d& optimized_pose,
     const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin) {
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.laser_voxel_filter_size()),
+                            options_.voxel_filter_size()),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
-                            options_.laser_voxel_filter_size())};
+                            options_.voxel_filter_size())};
 
   if (filtered_range_data.returns.empty()) {
     LOG(WARNING) << "Dropped empty range data.";
@@ -379,24 +443,19 @@ OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
 
   last_pose_estimate_ = {
       time, optimized_pose,
-      sensor::TransformPointCloud(filtered_range_data.returns,
+      sensor::TransformPointCloud(range_data_in_tracking.returns,
                                   optimized_pose.cast<float>())};
 
   return InsertIntoSubmap(time, range_data_in_tracking, optimized_pose, sensor_origin);
 }
 
-const OptimizingTSDFLocalTrajectoryBuilder::PoseEstimate&
-OptimizingTSDFLocalTrajectoryBuilder::pose_estimate() const {
+const ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::PoseEstimate&
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::pose_estimate() const {
   return last_pose_estimate_;
 }
 
-void OptimizingTSDFLocalTrajectoryBuilder::AddTrajectoryNodeIndex(
-    int trajectory_node_index) {
-  submaps_->AddTrajectoryNodeIndex(trajectory_node_index);
-}
-
-std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
-OptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
+std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     const common::Time time, const sensor::RangeData& range_data_in_tracking,
     const transform::Rigid3d& pose_observation, const Eigen::Vector3f& sensor_origin) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
@@ -408,19 +467,28 @@ OptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
+
+  //LOG(INFO)<<"pose "<<pose_observation.cast<float>();
+  //LOG(INFO)<<"before pose sensor "<<sensor_origin;
+  // TODO(whess): Use an ImuTracker to track the gravity direction.
+  const Eigen::Quaterniond kFakeGravityOrientation =
+      Eigen::Quaterniond::Identity();
+
   submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()), sensor_origin);
+      range_data_in_tracking, pose_observation.cast<float>()),
+                            kFakeGravityOrientation,
+                            pose_observation.cast<float>()*sensor_origin);
 
   const kalman_filter::PoseCovariance kCovariance =
       1e-7 * kalman_filter::PoseCovariance::Identity();
 
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, kCovariance,
-      submaps_.get(), matching_submap, insertion_submaps});
+      matching_submap, insertion_submaps});
 }
 
-OptimizingTSDFLocalTrajectoryBuilder::State
-OptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& start_state,
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::State
+ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& start_state,
                                                const common::Time start_time,
                                                const common::Time end_time) {
   auto it = --imu_data_.cend();
@@ -447,6 +515,7 @@ OptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& start_state,
       Eigen::Map<const Eigen::Vector3d>(start_state.velocity.data()) +
       start_rotation * result.delta_velocity -
       gravity_constant_ * delta_time_seconds * Eigen::Vector3d::UnitZ();
+
 
   return State{
       {{orientation.w(), orientation.x(), orientation.y(), orientation.z()}},

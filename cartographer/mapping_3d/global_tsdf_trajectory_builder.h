@@ -23,7 +23,6 @@
 #include "cartographer/mapping_3d/kalman_tsdf_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/optimizing_tsdf_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/proto/local_trajectory_builder_options.pb.h"
-#include "cartographer/mapping_3d/sparse_pose_graph_tsdf.h"
 #include "cartographer/mapping_3d/sparse_pose_graph_conversion.h"
 
 namespace cartographer {
@@ -33,7 +32,8 @@ class GlobalTSDFTrajectoryBuilder
     : public mapping::GlobalTrajectoryBuilderInterface {
  public:
   GlobalTSDFTrajectoryBuilder(const proto::LocalTrajectoryBuilderOptions& options,
-                          mapping_3d::SparsePoseGraphConversion* sparse_pose_graph);
+                              int trajectory_id,
+                              mapping_3d::SparsePoseGraphConversion* sparse_pose_graph);
   ~GlobalTSDFTrajectoryBuilder() override;
 
   GlobalTSDFTrajectoryBuilder(const GlobalTSDFTrajectoryBuilder&) = delete;
@@ -49,6 +49,7 @@ class GlobalTSDFTrajectoryBuilder
   const PoseEstimate& pose_estimate() const override;
 
  private:
+  const int trajectory_id_;
   mapping_3d::SparsePoseGraphConversion* const sparse_pose_graph_;
   std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> local_trajectory_builder_;
 };
