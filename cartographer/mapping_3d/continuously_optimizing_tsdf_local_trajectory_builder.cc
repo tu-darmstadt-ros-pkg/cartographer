@@ -423,39 +423,6 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
   return AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking, sensor_origin);
 
-  /*
-
-  if (num_accumulated_ < options_.scans_per_accumulation()) {
-    return nullptr;
-  }
-
-  num_accumulated_ = 0;
-
-
-  sensor::RangeData accumulated_range_data_in_tracking = {
-      Eigen::Vector3f::Zero(), {}, {}};
-
-  for (const auto& batch : batches_) {
-    const transform::Rigid3f transform =
-        (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
-    for (const Eigen::Vector3f& point : batch.points) {
-      accumulated_range_data_in_tracking.returns.push_back(transform * point);
-    }
-  }
-
-  //We estimate the sensor position over the trajectory by using the median batch transform,
-  //does not hold for multiple range scanners
-  int n_batches = batches_.size();
-
-  const transform::Rigid3f transform_median =
-      ( batches_[n_batches/2].state.ToRigid()).cast<float>();
-  Eigen::Vector3f sensor_origin = transform_median * origin;
-  //sensor hector tracker -0.245138    0.150075    0.622001
-  //sensor_origin.x() = 0.245138;
-  //sensor_origin.y() = 0.150075;
-  //sensor_origin.z() = 0.622001;
-  return AddAccumulatedRangeData(time, optimized_pose,
-                                 accumulated_range_data_in_tracking, sensor_origin);*/
 }
 
 std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
@@ -476,7 +443,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
 
   last_pose_estimate_ = {
       time, optimized_pose,
-      sensor::TransformPointCloud(filtered_range_data.returns,
+      sensor::TransformPointCloud(range_data_in_tracking.returns,
                                   optimized_pose.cast<float>())};
 
   return InsertIntoSubmap(time, range_data_in_tracking, optimized_pose, sensor_origin);
