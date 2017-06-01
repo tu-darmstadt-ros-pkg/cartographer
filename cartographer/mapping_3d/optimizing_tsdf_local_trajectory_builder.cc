@@ -382,7 +382,7 @@ OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   optimized_pose.cast<float>())};
 
-  return InsertIntoSubmap(time, filtered_range_data, optimized_pose, sensor_origin);
+  return InsertIntoSubmap(time, range_data_in_tracking, optimized_pose, sensor_origin);
 }
 
 const OptimizingTSDFLocalTrajectoryBuilder::PoseEstimate&

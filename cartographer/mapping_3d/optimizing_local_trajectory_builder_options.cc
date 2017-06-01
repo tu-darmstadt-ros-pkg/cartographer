@@ -37,6 +37,10 @@ CreateOptimizingLocalTrajectoryBuilderOptions(
       parameter_dictionary->GetDouble("odometry_translation_weight"));
   options.set_odometry_rotation_weight(
       parameter_dictionary->GetDouble("odometry_rotation_weight"));
+  options.set_scans_per_map_update(
+      parameter_dictionary->GetInt("scans_per_map_update"));
+  options.set_scans_per_optimization_update(
+      parameter_dictionary->GetInt("scans_per_optimization_update"));
   return options;
 }
 

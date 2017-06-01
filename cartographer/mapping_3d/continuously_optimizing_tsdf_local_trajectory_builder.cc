@@ -110,6 +110,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::ContinuouslyOptimizingTSDFLoca
           options.ceres_scan_matcher_options().ceres_solver_options())),
       submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       num_accumulated_(0),
+      num_map_update_(0),
       motion_filter_(options.motion_filter_options()) {}
 
 ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::~ContinuouslyOptimizingTSDFLocalTrajectoryBuilder() {}
@@ -193,7 +194,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
 
     const Batch& last_batch = batches_.back();
     State state = PredictState(last_batch.state, last_batch.time, time);
-    LOG(INFO)<<"batch state: t="<<state.translation[0]<<" "<<state.translation[1]<<" "<<state.translation[2]<<" v= "<<state.velocity[0]<<" "<<state.velocity[1]<<" "<<state.velocity[2];
+   // LOG(INFO)<<"batch state: t="<<state.translation[0]<<" "<<state.translation[1]<<" "<<state.translation[2]<<" v= "<<state.velocity[0]<<" "<<state.velocity[1]<<" "<<state.velocity[2];
     batches_.push_back(Batch(
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
@@ -202,6 +203,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
     ));
   }
   ++num_accumulated_;
+  ++num_map_update_;
 
   RemoveObsoleteSensorData();
   return MaybeOptimize(time, origin);
@@ -232,9 +234,9 @@ void ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData(
 
 std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
 ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, const Eigen::Vector3f& origin) {
-  // TODO(hrapp): Make the number of optimizations configurable.
-  if (num_accumulated_ < options_.scans_per_accumulation() &&
-      num_accumulated_ % 10 != 0) {
+
+
+  if (num_accumulated_ % options_.optimizing_local_trajectory_builder_options().scans_per_optimization_update() != 0) {
     return nullptr;
   }
 
@@ -263,7 +265,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetChiselPtr(submaps_->matching_index()),1,
+                submaps_->GetChiselPtr(submaps_->matching_index()),2,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
@@ -363,6 +365,7 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
   int i_batch = 0;
 
   const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+  /*
   for (const auto& batch : batches_) {
 
       //LOG(INFO)<<"Batch "<<i_batch<<"  "<<num_accumulated_;
@@ -379,6 +382,48 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
     }
     i_batch++;
   }
+*/
+
+
+  if (num_map_update_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
+          || num_accumulated_ < options_.scans_per_accumulation())
+  {
+      return nullptr;
+  }
+  num_map_update_ = 0;
+
+
+
+  sensor::RangeData accumulated_range_data_in_tracking = {
+      Eigen::Vector3f::Zero(), {}, {}};
+
+  i_batch = 0;
+  for (const auto& batch : batches_) {
+    const transform::Rigid3f transform =
+        (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
+    for (const Eigen::Vector3f& point : batch.points) {
+      accumulated_range_data_in_tracking.returns.push_back(transform * point);
+    }
+    i_batch++;
+    if(i_batch == options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
+            && num_accumulated_ != options_.scans_per_accumulation())
+        break;
+  }
+
+  //We estimate the sensor position over the trajectory by using the median batch transform,
+  //does not hold for multiple range scanners
+
+  const transform::Rigid3f transform_median =
+      ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
+  Eigen::Vector3f sensor_origin = transform_median * origin;
+  //sensor hector tracker -0.245138    0.150075    0.622001
+  //sensor_origin.x() = 0.245138;
+  //sensor_origin.y() = 0.150075;
+  //sensor_origin.z() = 0.622001;
+  return AddAccumulatedRangeData(time, optimized_pose,
+                                 accumulated_range_data_in_tracking, sensor_origin);
+
+  /*
 
   if (num_accumulated_ < options_.scans_per_accumulation()) {
     return nullptr;
@@ -406,11 +451,11 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Ti
       ( batches_[n_batches/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
   //sensor hector tracker -0.245138    0.150075    0.622001
-  /*sensor_origin.x() = 0.245138;
-  sensor_origin.y() = 0.150075;
-  sensor_origin.z() = 0.622001;*/
+  //sensor_origin.x() = 0.245138;
+  //sensor_origin.y() = 0.150075;
+  //sensor_origin.z() = 0.622001;
   return AddAccumulatedRangeData(time, optimized_pose,
-                                 accumulated_range_data_in_tracking, sensor_origin);
+                                 accumulated_range_data_in_tracking, sensor_origin);*/
 }
 
 std::unique_ptr<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
@@ -461,8 +506,8 @@ ContinuouslyOptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
 
-  LOG(INFO)<<"pose "<<pose_observation.cast<float>();
-  LOG(INFO)<<"before pose sensor "<<sensor_origin;
+  //LOG(INFO)<<"pose "<<pose_observation.cast<float>();
+  //LOG(INFO)<<"before pose sensor "<<sensor_origin;
   submaps_->InsertRangeData(sensor::TransformRangeData(
       range_data_in_tracking, pose_observation.cast<float>()), pose_observation.cast<float>()*sensor_origin);
 

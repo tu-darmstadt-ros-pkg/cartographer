@@ -23,5 +23,7 @@ message OptimizingLocalTrajectoryBuilderOptions {
   optional double translation_weight = 2;
   optional double rotation_weight = 3;
   optional double odometry_translation_weight = 4;
-  optional double odometry_rotation_weight = 5;
+  optional double odometry_rotation_weight = 5;  
+  optional int32 scans_per_map_update = 8;  
+  optional int32 scans_per_optimization_update = 9;
 }
