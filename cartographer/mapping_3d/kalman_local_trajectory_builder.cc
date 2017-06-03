@@ -123,7 +123,9 @@ KalmanLocalTrajectoryBuilder::AddRangefinderData(
 std::unique_ptr<KalmanLocalTrajectoryBuilder::InsertionResult>
 KalmanLocalTrajectoryBuilder::AddAccumulatedRangeData(
     const common::Time time, const sensor::RangeData& range_data_in_tracking) {
-  const sensor::RangeData filtered_range_data = {
+
+
+    const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
                             options_.voxel_filter_size()),

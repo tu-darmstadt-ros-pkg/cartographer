@@ -86,7 +86,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
   const transform::Rigid3f tracking_delta =
       first_pose_prediction_.inverse() * pose_prediction.cast<float>();
   const sensor::RangeData range_data_in_first_tracking =
-      sensor::TransformRangeData(sensor::RangeData{origin, {}, {}},
+      sensor::TransformRangeData(sensor::RangeData{origin, ranges, {}},
                                  tracking_delta);
   for (const Eigen::Vector3f& hit : range_data_in_first_tracking.returns) {
     const Eigen::Vector3f delta = hit - range_data_in_first_tracking.origin;
@@ -128,7 +128,9 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
 std::unique_ptr<KalmanTSDFLocalTrajectoryBuilder::InsertionResult>
 KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
     const common::Time time, const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin) {
-  const sensor::RangeData filtered_range_data = {
+
+
+    const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
                             options_.voxel_filter_size()),
