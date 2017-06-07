@@ -33,12 +33,8 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
       return common::make_unique<KalmanTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
     case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
-      LOG(WARNING) << "Initializing ContinuouslyOptimizingTSDFLocalTrajectoryBuilder DEPRECATED";
-      return common::make_unique<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder>(
-          local_trajectory_builder_options);
-    case proto::LocalTrajectoryBuilderOptions::CONTINUOUSLY_OPTIMIZING:
-      LOG(WARNING) << "Initializing ContinuouslyOptimizingTSDFLocalTrajectoryBuilder DEPRECATED";
-      return common::make_unique<ContinuouslyOptimizingTSDFLocalTrajectoryBuilder>(
+      LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
+      return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
       //todo(kdaun) remove continuous option
   }

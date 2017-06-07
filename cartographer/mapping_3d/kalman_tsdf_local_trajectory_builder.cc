@@ -210,7 +210,15 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   pose_observation.cast<float>())};
 
-  return InsertIntoSubmap(time, range_data_in_tracking, pose_observation,
+
+  const sensor::RangeData insertion_filtered_range_data = {
+      range_data_in_tracking.origin,
+      sensor::VoxelFiltered(range_data_in_tracking.returns,
+                            options_.voxel_filter_size() * 0.5),
+      sensor::VoxelFiltered(range_data_in_tracking.misses,
+                            options_.voxel_filter_size() * 0.5)};
+
+  return InsertIntoSubmap(time, insertion_filtered_range_data, pose_observation,
                           covariance_estimate, sensor_origin);
 }
 

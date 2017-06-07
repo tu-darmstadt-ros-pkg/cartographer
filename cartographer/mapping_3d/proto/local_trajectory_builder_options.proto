@@ -29,7 +29,6 @@ message LocalTrajectoryBuilderOptions {
   enum Use {
     KALMAN = 0;
     OPTIMIZING = 1;
-    CONTINUOUSLY_OPTIMIZING = 2;
   }
 
   // Rangefinder points outside these ranges will be dropped.

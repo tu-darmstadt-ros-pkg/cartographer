@@ -37,17 +37,17 @@ namespace mapping_3d {
 
 // Batches up some sensor data and optimizes them in one go to get a locally
 // consistent trajectory.
-class ContinuouslyOptimizingTSDFLocalTrajectoryBuilder
+class OptimizingTSDFLocalTrajectoryBuilder
     : public LocalTSDFTrajectoryBuilderInterface {
  public:
-  explicit ContinuouslyOptimizingTSDFLocalTrajectoryBuilder(
+  explicit OptimizingTSDFLocalTrajectoryBuilder(
       const proto::LocalTrajectoryBuilderOptions& options);
-  ~ContinuouslyOptimizingTSDFLocalTrajectoryBuilder() override;
+  ~OptimizingTSDFLocalTrajectoryBuilder() override;
 
-  ContinuouslyOptimizingTSDFLocalTrajectoryBuilder(const ContinuouslyOptimizingTSDFLocalTrajectoryBuilder&) =
+  OptimizingTSDFLocalTrajectoryBuilder(const OptimizingTSDFLocalTrajectoryBuilder&) =
       delete;
-  ContinuouslyOptimizingTSDFLocalTrajectoryBuilder& operator=(
-      const ContinuouslyOptimizingTSDFLocalTrajectoryBuilder&) = delete;
+  OptimizingTSDFLocalTrajectoryBuilder& operator=(
+      const OptimizingTSDFLocalTrajectoryBuilder&) = delete;
 
   void AddImuData(common::Time time, const Eigen::Vector3d& linear_acceleration,
                   const Eigen::Vector3d& angular_velocity) override;
