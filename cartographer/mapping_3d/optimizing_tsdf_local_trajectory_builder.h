@@ -128,15 +128,15 @@ class OptimizingTSDFLocalTrajectoryBuilder
   const ceres::Solver::Options ceres_solver_options_;
   std::unique_ptr<mapping_3d::TSDFs> submaps_;
   int num_accumulated_;
-  int num_map_update_;
+  int num_map_update_;  
+  float summed_duration_optimization;
+  float summed_duration_map_update;
 
   std::deque<Batch> batches_;
   double gravity_constant_ = 9.8;
   std::deque<ImuData> imu_data_;
   std::deque<OdometerData> odometer_data_;
-
   PoseEstimate last_pose_estimate_;
-
   MotionFilter motion_filter_;
 };
 

@@ -30,6 +30,10 @@
 #include "cartographer/transform/transform_interpolation_buffer.h"
 #include "glog/logging.h"
 #include "covariance_cost_functor.h"
+//time measurement
+#include <cstdio>
+#include <ctime>
+#include <chrono>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -111,6 +115,8 @@ OptimizingTSDFLocalTrajectoryBuilder::OptimizingTSDFLocalTrajectoryBuilder(
       submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       num_accumulated_(0),
       num_map_update_(0),
+      summed_duration_optimization(0.f),
+      summed_duration_map_update(0.f),
       motion_filter_(options.motion_filter_options()) {}
 
 OptimizingTSDFLocalTrajectoryBuilder::~OptimizingTSDFLocalTrajectoryBuilder() {}
@@ -174,16 +180,6 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
       low_resolution_adaptive_voxel_filter.Filter(point_cloud);
 
 
-  /*
-  std::cout<<"====================================="<<std::endl;
-
-  std::cout<<origin.x()<<" "<<origin.y()<<" "<<origin.z()<<std::endl;
-  for(auto p : point_cloud )
-  {
-      std::cout<<p.x()<<" "<<p.y()<<" "<<p.z()<<std::endl;
-  }
-  std::cout<<"====================================="<<std::endl;*/
-
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
     batches_.push_back(
@@ -239,6 +235,8 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
   if (num_accumulated_ % options_.optimizing_local_trajectory_builder_options().scans_per_optimization_update() != 0) {
     return nullptr;
   }
+
+  std::clock_t startcputime_opt = std::clock();
 
   ceres::Problem problem;
   for (size_t i = 0; i < batches_.size(); ++i) {
@@ -305,14 +303,14 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
 
 
-    /*double covariance_weight = 0.000005;
+    double covariance_weight = 0.0005;
     problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<CovarianceCostFunction, 1, 3, 3>(
             new CovarianceCostFunction(
                 covariance_weight,
                 batches_[i].covariance)),
         nullptr, batches_[i - 1].state.translation.data(),
-        batches_[i].state.translation.data());*/
+        batches_[i].state.translation.data());
 
     const IntegrateImuResult<double> result =
         IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
@@ -362,6 +360,11 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_solver_options_, &problem, &summary);
+  double cpu_duration_opt = (std::clock() - startcputime_opt) / (double)CLOCKS_PER_SEC;
+  summed_duration_optimization += cpu_duration_opt;
+
+  if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
+    LOG(WARNING)<<summary.BriefReport();
   int i_batch = 0;
 
   const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
@@ -412,7 +415,6 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
   //We estimate the sensor position over the trajectory by using the median batch transform,
   //does not hold for multiple range scanners
-
   const transform::Rigid3f transform_median =
       ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
@@ -420,9 +422,18 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
   //sensor_origin.x() = 0.245138;
   //sensor_origin.y() = 0.150075;
   //sensor_origin.z() = 0.622001;
-  return AddAccumulatedRangeData(time, optimized_pose,
+
+  std::clock_t startcputime_map = std::clock();
+  std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult> insertion_result = AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking, sensor_origin);
 
+  double cpu_duration_map = (std::clock() - startcputime_map) / (double)CLOCKS_PER_SEC;
+  summed_duration_map_update += cpu_duration_map;
+
+  LOG(INFO)<<"t(map):"<<summed_duration_map_update;
+  LOG(INFO)<<"t(opt):"<<summed_duration_optimization;
+
+  return insertion_result;
 }
 
 std::unique_ptr<OptimizingTSDFLocalTrajectoryBuilder::InsertionResult>
@@ -443,7 +454,7 @@ OptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
 
   last_pose_estimate_ = {
       time, optimized_pose,
-      sensor::TransformPointCloud(range_data_in_tracking.returns,
+      sensor::TransformPointCloud(filtered_range_data.returns,
                                   optimized_pose.cast<float>())};
 
   return InsertIntoSubmap(time, filtered_range_data, optimized_pose, sensor_origin);
