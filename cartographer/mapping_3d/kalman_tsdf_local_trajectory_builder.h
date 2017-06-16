@@ -33,6 +33,7 @@
 namespace cartographer {
 namespace mapping_3d {
 
+
 // Wires up the local SLAM stack (i.e. UKF, scan matching, etc.) without loop
 // closure.
 class KalmanTSDFLocalTrajectoryBuilder : public LocalTSDFTrajectoryBuilderInterface {
@@ -57,13 +58,16 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTSDFTrajectoryBuilderInterf
 
  private:
   std::unique_ptr<InsertionResult> AddAccumulatedRangeData(
-      common::Time time, const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin);
+       common::Time time, const sensor::RangeData& range_data_in_tracking,
+       const Eigen::Vector3f& sensor_origin,
+       std::vector<CombinedRangeData>& combined_range_data);
 
   std::unique_ptr<InsertionResult> InsertIntoSubmap(
       const common::Time time, const sensor::RangeData& range_data_in_tracking,
       const transform::Rigid3d& pose_observation,
       const kalman_filter::PoseCovariance& covariance_estimate,
-          const Eigen::Vector3f& sensor_origin);
+      const Eigen::Vector3f& sensor_origin,
+          std::vector<CombinedRangeData>& combined_range_data);
 
   const proto::LocalTrajectoryBuilderOptions options_;
   std::unique_ptr<mapping_3d::TSDFs> submaps_;
@@ -81,6 +85,8 @@ class KalmanTSDFLocalTrajectoryBuilder : public LocalTSDFTrajectoryBuilderInterf
   int num_accumulated_;
   transform::Rigid3f first_pose_prediction_;
   sensor::RangeData accumulated_range_data_;
+  std::vector<CombinedRangeData> accumulated_range_data_with_pose_;
+
 };
 
 }  // namespace mapping_3d

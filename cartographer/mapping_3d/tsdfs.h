@@ -39,6 +39,12 @@
 namespace cartographer {
 namespace mapping_3d {
 
+struct CombinedRangeData
+{
+    sensor::RangeData range_data_;
+    transform::Rigid3d pose_;
+};
+
 proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
@@ -75,9 +81,12 @@ class TSDFs : public mapping::Submaps {
   // be inserted.
   std::vector<int> insertion_indices() const;
   //Inserts 'range_data' into the Submap collection.
-   void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
-                        const Eigen::Quaterniond &gravity_alignment,
-                        const Eigen::Vector3f& sensor_origin);
+  void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
+                       const Eigen::Quaterniond &gravity_alignment,
+                       const Eigen::Vector3f& sensor_origin);
+
+  void InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
+                       const Eigen::Quaterniond &gravity_alignment);
 
 
   void SubmapToProto(

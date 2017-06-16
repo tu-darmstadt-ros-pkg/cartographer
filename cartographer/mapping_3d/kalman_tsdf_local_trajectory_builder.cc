@@ -88,12 +88,16 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
   const sensor::RangeData range_data_in_first_tracking =
       sensor::TransformRangeData(sensor::RangeData{origin, ranges, {}},
                                  tracking_delta);
+  CombinedRangeData combined_range_data;
+  combined_range_data.pose_ = transform::Rigid3<double>::Translation((tracking_delta*origin).cast<double>());
+  combined_range_data.range_data_ = sensor::RangeData{Eigen::Vector3f::Zero(), {}, {}};
   for (const Eigen::Vector3f& hit : range_data_in_first_tracking.returns) {
     const Eigen::Vector3f delta = hit - range_data_in_first_tracking.origin;
     const float range = delta.norm();
     if (range >= options_.min_range()) {
       if (range <= options_.max_range()) {
-        accumulated_range_data_.returns.push_back(hit);
+          accumulated_range_data_.returns.push_back(hit);
+          combined_range_data.range_data_.returns.push_back(hit);
       } else {
         // We insert a ray cropped to 'laser_max_range' as a miss for hits
         // beyond the maximum range. This way the free space up to the maximum
@@ -104,30 +108,38 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
       }
     }
   }
+  accumulated_range_data_with_pose_.push_back(combined_range_data);
   ++num_accumulated_;
 
   //We estimate the sensor position over the trajectory by averaging the pose at the
   //start and the end of the accumulation, does not hold for multiple range scanners
-  Eigen::Vector3f sensor_origin = 0.5*(pose_prediction.cast<float>() * origin
-                                       + first_pose_prediction_.cast<float>() * origin);
-  sensor_origin = origin;
-
+  Eigen::Vector3f sensor_origin = origin;
   //sensor hector tracker
   /*sensor_origin.x() = 0.245138;
   sensor_origin.y() = 0.150075;
   sensor_origin.z() = 0.622001;*/
   if (num_accumulated_ >= options_.scans_per_accumulation()) {
+      for(CombinedRangeData& data : accumulated_range_data_with_pose_)
+      {
+          data.pose_ = tracking_delta.inverse().cast<double>()*data.pose_;
+          data.range_data_ = sensor::TransformRangeData(data.range_data_,
+                                                       tracking_delta.inverse());
+      }
+
     num_accumulated_ = 0;
-    return AddAccumulatedRangeData(
+    std::unique_ptr<InsertionResult> res = AddAccumulatedRangeData(
         time, sensor::TransformRangeData(accumulated_range_data_,
-                                         tracking_delta.inverse()), sensor_origin);
+                                         tracking_delta.inverse()), sensor_origin, accumulated_range_data_with_pose_);
+    accumulated_range_data_with_pose_.clear(); //todo(kdaun) pop push instead of clear
+    return res;
+
   }
   return nullptr;
 }
 
 std::unique_ptr<KalmanTSDFLocalTrajectoryBuilder::InsertionResult>
 KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
-    const common::Time time, const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin) {
+    const common::Time time, const sensor::RangeData& range_data_in_tracking, const Eigen::Vector3f& sensor_origin, std::vector<CombinedRangeData>& combined_range_data) {
 
 
     const sensor::RangeData filtered_range_data = {
@@ -214,12 +226,12 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData insertion_filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size() * 0.5),
+                            options_.voxel_filter_size() * 0.25),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
-                            options_.voxel_filter_size() * 0.5)};
+                            options_.voxel_filter_size() * 0.25)};
 
   return InsertIntoSubmap(time, insertion_filtered_range_data, pose_observation,
-                          covariance_estimate, sensor_origin);
+                          covariance_estimate, sensor_origin, combined_range_data);
 }
 
 void KalmanTSDFLocalTrajectoryBuilder::AddOdometerData(
@@ -245,9 +257,13 @@ KalmanTSDFLocalTrajectoryBuilder::pose_estimate() const {
 }
 
 std::unique_ptr<KalmanTSDFLocalTrajectoryBuilder::InsertionResult>
-KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(const common::Time time, const sensor::RangeData& range_data_in_tracking,
+KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
+    const common::Time time,
+    const sensor::RangeData& range_data_in_tracking,
     const transform::Rigid3d& pose_observation,
-    const kalman_filter::PoseCovariance& covariance_estimate, const Eigen::Vector3f& sensor_origin) {
+    const kalman_filter::PoseCovariance& covariance_estimate,
+    const Eigen::Vector3f& sensor_origin,
+    std::vector<CombinedRangeData>& combined_range_data) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
   }
@@ -258,10 +274,21 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(const common::Time time, cons
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
 //todo(kdaun) check sensor transform as well?
-  LOG(INFO)<<"pose "<<pose_observation.cast<float>();
-  LOG(INFO)<<"before pose sensor "<<sensor_origin;
-  submaps_->InsertRangeData(sensor::TransformRangeData(
-      range_data_in_tracking, pose_observation.cast<float>()),pose_tracker_->gravity_orientation(), pose_observation.cast<float>()*sensor_origin);
+  //LOG(INFO)<<"pose "<<pose_observation.cast<float>();
+ // LOG(INFO)<<"before pose sensor "<<sensor_origin;
+  for(CombinedRangeData& data : combined_range_data)
+  {
+      //LOG(INFO)<<"sensor "<<pose_observation.cast<float>()*data.pose_.cast<float>().translation();
+      data.range_data_ = sensor::TransformRangeData(
+                  data.range_data_,
+                  pose_observation.cast<float>());
+      //data.pose_ = transform::Rigid3d::Translation(pose_observation*sensor_origin.cast<double>());
+      data.pose_ = pose_observation*data.pose_;
+  }
+
+  submaps_->InsertRangeData(
+              combined_range_data,
+              pose_tracker_->gravity_orientation());
 
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,
