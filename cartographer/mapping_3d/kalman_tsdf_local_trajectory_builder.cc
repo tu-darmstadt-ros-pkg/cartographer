@@ -108,6 +108,16 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
       }
     }
   }
+
+
+  const sensor::RangeData filtered_range_data = {
+    combined_range_data.range_data_.origin,
+    sensor::VoxelFiltered(combined_range_data.range_data_.returns,
+                          options_.voxel_filter_size()*0.5),
+    sensor::VoxelFiltered(combined_range_data.range_data_.misses,
+                          options_.voxel_filter_size()*0.5)};
+  combined_range_data.range_data_ = filtered_range_data;
+
   accumulated_range_data_with_pose_.push_back(combined_range_data);
   ++num_accumulated_;
 

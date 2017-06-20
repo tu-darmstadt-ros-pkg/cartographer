@@ -85,6 +85,8 @@ class MapBuilder {
 
   mapping::SparsePoseGraph* sparse_pose_graph();
 
+  void reset();
+
  private:
   const proto::MapBuilderOptions options_;
   common::ThreadPool thread_pool_;
