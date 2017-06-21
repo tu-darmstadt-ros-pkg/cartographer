@@ -386,6 +386,8 @@ void TSDFs::AddTSDF(const transform::Rigid3d& origin) {
   projection_integrators_.emplace_back(projection_integrator);
 
   LOG(INFO) << "truncation_distance " << truncation_distance<<" "<< truncation_scale;
+  LOG(INFO) << "carving enabled " << options_.projection_integrator_options().carving_enabled();
+  LOG(INFO) << "carving distance " << options_.projection_integrator_options().carving_distance();
 
   LOG(INFO) << "Added submap " << size();
   num_range_data_in_last_submap_ = 0;
