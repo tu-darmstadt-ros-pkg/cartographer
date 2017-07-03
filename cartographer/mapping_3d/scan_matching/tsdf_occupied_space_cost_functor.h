@@ -66,7 +66,7 @@ class TSDFOccupiedSpaceCostFunctor {
       const Eigen::Matrix<T, 3, 1> world =
           transform * point_cloud_[i].cast<T>();
 
-      const T sdf =interpolated_grid_.GetSDF(world[0], world[1], world[2], coarsening_factor_);
+      const T sdf = interpolated_grid_.GetSDF(world[0], world[1], world[2], coarsening_factor_);
       residual[i] = scaling_factor_ * sdf;
     }
     return true;

@@ -194,9 +194,9 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
     batches_.push_back(Batch(
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
-        state,
-                       origin
+        state, origin
     ));
+    //MatchBatchState(batches_[batches_.size()-1]);
   }
   ++num_accumulated_;
   ++num_map_update_;
@@ -302,7 +302,7 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
         batches_[i - 1].state.velocity.data());
 
 
-
+/*
     double covariance_weight = 0.0005;
     problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<CovarianceCostFunction, 1, 3, 3>(
@@ -310,7 +310,7 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
                 covariance_weight,
                 batches_[i].covariance)),
         nullptr, batches_[i - 1].state.translation.data(),
-        batches_[i].state.translation.data());
+        batches_[i].state.translation.data());*/
 
     const IntegrateImuResult<double> result =
         IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
@@ -532,6 +532,65 @@ OptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& start_state,
       {{orientation.w(), orientation.x(), orientation.y(), orientation.z()}},
       {{position.x(), position.y(), position.z()}},
       {{velocity.x(), velocity.y(), velocity.z()}}};
+}
+
+void
+OptimizingTSDFLocalTrajectoryBuilder::MatchBatchState(Batch &batch) {
+    LOG(INFO)<<"batch state before: t="<<batch.state.translation[0]<<" "<<batch.state.translation[1]<<" "<<batch.state.translation[2];
+
+
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+                new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
+                ceres::DYNAMIC, 3, 4>(
+                    new scan_matching::TSDFOccupiedSpaceCostFunctor(
+                        options_.optimizing_local_trajectory_builder_options()
+                        .high_resolution_grid_weight() /
+                        std::sqrt(static_cast<double>(
+                                      batch.high_resolution_filtered_points.size())),
+                        batch.high_resolution_filtered_points,
+                        submaps_->GetChiselPtr(submaps_->matching_index()),1,
+                        submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                    batch.high_resolution_filtered_points.size()),
+                nullptr, batch.state.translation.data(), batch.state.rotation.data());
+    problem.AddResidualBlock(
+                new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
+                ceres::DYNAMIC, 3, 4>(
+                    new scan_matching::TSDFOccupiedSpaceCostFunctor(
+                        options_.optimizing_local_trajectory_builder_options()
+                        .low_resolution_grid_weight() /
+                        std::sqrt(static_cast<double>(
+                                      batch.low_resolution_filtered_points.size())),
+                        batch.low_resolution_filtered_points,
+                        submaps_->GetChiselPtr(submaps_->matching_index()),2,
+                        submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                    batch.low_resolution_filtered_points.size()),
+                nullptr, batch.state.translation.data(), batch.state.rotation.data());
+
+
+    double covariance_weight = 5.05;
+    std::array<double, 3> initial_translation = batch.state.translation;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<CovarianceCostFunction, 1, 3, 3>(
+            new CovarianceCostFunction(
+                covariance_weight,
+                batch.covariance)),
+        nullptr, initial_translation.data(),
+        batch.state.translation.data());
+
+
+    problem.SetParameterization(batch.state.rotation.data(),
+                                new ceres::QuaternionParameterization());
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(ceres_solver_options_, &problem, &summary);
+
+
+    if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
+      LOG(WARNING)<<"perproc "<<summary.BriefReport();
+
+    LOG(INFO)<<"batch state after: t="<<batch.state.translation[0]<<" "<<batch.state.translation[1]<<" "<<batch.state.translation[2];
+
 }
 
 }  // namespace mapping_3d
