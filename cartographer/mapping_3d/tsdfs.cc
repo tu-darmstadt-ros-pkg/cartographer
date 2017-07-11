@@ -194,7 +194,7 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
         size_t i = 0;
         for (const Eigen::Vector3f& pt : combined_data.range_data_.returns)
         {
-            chisel::Vec3& xyz =  cloudOut.GetMutablePoints().at(i);
+            chisel::Vec3& xyz = cloudOut.GetMutablePoints().at(i);
             xyz(0) = pt(0);
             xyz(1) = pt(1);
             xyz(2) = pt(2);

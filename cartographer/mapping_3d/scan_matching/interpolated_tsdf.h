@@ -56,17 +56,22 @@ class InterpolatedTSDF {
   template <typename T>
   T GetSDF(const T& x, const T& y, const T& z, int coarsening_factor) const {
     double x1, y1, z1, x2, y2, z2;
-    ComputeInterpolationDataPoints(x, y, z, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
-
     const auto& chunk_manager = tsdf_->GetChunkManager();
-    const chisel::DistVoxel* v111 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z1), coarsening_factor);
-    const chisel::DistVoxel* v112 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y1,z2), coarsening_factor);
-    const chisel::DistVoxel* v121 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z1), coarsening_factor);
-    const chisel::DistVoxel* v122 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x1,y2,z2), coarsening_factor);
-    const chisel::DistVoxel* v211 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z1), coarsening_factor);
-    const chisel::DistVoxel* v212 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y1,z2), coarsening_factor);
-    const chisel::DistVoxel* v221 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z1), coarsening_factor);
-    const chisel::DistVoxel* v222 = chunk_manager.GetCoarsedDistanceVoxelGlobal(chisel::Vec3(x2,y2,z2), coarsening_factor);
+    chisel::Vec3 origin = chunk_manager.GetOrigin();
+    T x_local = x - T(origin.x());
+    T y_local = y - T(origin.y());
+    T z_local = z - T(origin.z());
+
+    ComputeInterpolationDataPoints(x_local, y_local, z_local, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
+
+    const chisel::DistVoxel* v111 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z1));
+    const chisel::DistVoxel* v112 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z2));
+    const chisel::DistVoxel* v121 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y2,z1));
+    const chisel::DistVoxel* v122 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y2,z2));
+    const chisel::DistVoxel* v211 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y1,z1));
+    const chisel::DistVoxel* v212 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y1,z2));
+    const chisel::DistVoxel* v221 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z1));
+    const chisel::DistVoxel* v222 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z2));
 
     const double q111 = getVoxelSDF(v111);
     const double q112 = getVoxelSDF(v112);
@@ -136,10 +141,11 @@ class InterpolatedTSDF {
   Eigen::Vector3f CenterOfLowerVoxel(const double x, const double y,
                                      const double z, int coarsening_factor) const {
       const auto& chunk_manager = tsdf_->GetChunkManager();
-      const float round = 1/(chunk_manager.GetResolution()*coarsening_factor);
-      const float x_0 = static_cast<float>(std::floor(x * round))/round;
-      const float y_0 = static_cast<float>(std::floor(y * round))/round;
-      const float z_0 = static_cast<float>(std::floor(z * round ))/round;
+      const float coarsed_resolution = chunk_manager.GetResolution()*coarsening_factor;
+      const float round = 1/coarsed_resolution;
+      float x_0 = static_cast<float>(std::floor(x * round))/round;
+      float y_0 = static_cast<float>(std::floor(y * round))/round;
+      float z_0 = static_cast<float>(std::floor(z * round))/round;
       Eigen::Vector3f center(x_0, y_0, z_0);
       return center;
   }
