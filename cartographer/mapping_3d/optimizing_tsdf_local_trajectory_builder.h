@@ -128,9 +128,14 @@ class OptimizingTSDFLocalTrajectoryBuilder
   const ceres::Solver::Options ceres_solver_options_;
   std::unique_ptr<mapping_3d::TSDFs> submaps_;
   int num_accumulated_;
-  int num_map_update_;  
+  int num_update_scans_;
+  int num_optimizations_;
+  int num_optimization_iterations_;
+  int num_map_updates_;
   float summed_duration_optimization;
   float summed_duration_map_update;
+  double summed_residuals;
+  int summed_solver_iterations;
 
   std::deque<Batch> batches_;
   double gravity_constant_ = 9.8;

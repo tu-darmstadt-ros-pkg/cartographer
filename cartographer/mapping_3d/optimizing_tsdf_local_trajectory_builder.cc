@@ -114,9 +114,13 @@ OptimizingTSDFLocalTrajectoryBuilder::OptimizingTSDFLocalTrajectoryBuilder(
           options.ceres_scan_matcher_options().ceres_solver_options())),
       submaps_(common::make_unique<TSDFs>(options.tsdfs_options())),
       num_accumulated_(0),
-      num_map_update_(0),
+      num_update_scans_(0),
+      num_optimizations_(0),
+      num_optimization_iterations_(0),
+      num_map_updates_(0),
       summed_duration_optimization(0.f),
       summed_duration_map_update(0.f),
+      summed_residuals(0.f),
       motion_filter_(options.motion_filter_options()) {}
 
 OptimizingTSDFLocalTrajectoryBuilder::~OptimizingTSDFLocalTrajectoryBuilder() {}
@@ -199,7 +203,7 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
     ));
   }
   ++num_accumulated_;
-  ++num_map_update_;
+  ++num_update_scans_;
 
   RemoveObsoleteSensorData();
   return MaybeOptimize(time, origin);
@@ -362,9 +366,12 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   double cpu_duration_opt = (std::clock() - startcputime_opt) / (double)CLOCKS_PER_SEC;
   summed_duration_optimization += cpu_duration_opt;
+  num_optimizations_++;
+  num_optimization_iterations_ += summary.iterations.size();
+  summed_residuals += summary.final_cost;
 
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
-    LOG(WARNING)<<summary.BriefReport();
+    LOG(WARNING)<<summary.FullReport();
   int i_batch = 0;
 
   const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
@@ -388,12 +395,12 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 */
 
 
-  if (num_map_update_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
+  if (num_update_scans_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
           || num_accumulated_ < options_.scans_per_accumulation())
   {
       return nullptr;
   }
-  num_map_update_ = 0;
+  num_update_scans_ = 0;
 
 
 
@@ -429,9 +436,12 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
   double cpu_duration_map = (std::clock() - startcputime_map) / (double)CLOCKS_PER_SEC;
   summed_duration_map_update += cpu_duration_map;
+  num_map_updates_++;
 
-  LOG(INFO)<<"t(map):"<<summed_duration_map_update;
-  LOG(INFO)<<"t(opt):"<<summed_duration_optimization;
+  LOG(INFO)<<"t(map) avg:"<<summed_duration_map_update/float(num_map_updates_);
+  LOG(INFO)<<"t(opt) avg:"<<summed_duration_optimization/float(num_optimizations_);
+  LOG(INFO)<<"iterations avg: "<<num_optimization_iterations_/float(num_optimizations_);
+  LOG(INFO)<<"residual avg: "<<summed_residuals/float(num_optimizations_);
 
   return insertion_result;
 }
