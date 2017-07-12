@@ -20,6 +20,7 @@
 #include "cartographer/mapping_3d/kalman_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/kalman_tsdf_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/optimizing_local_trajectory_builder.h"
+#include "cartographer/mapping_3d/robust_optimizing_local_trajectory_builder.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -33,6 +34,9 @@ std::unique_ptr<LocalTrajectoryBuilderInterface> CreateLocalTrajectoryBuilder(
           local_trajectory_builder_options);
       case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
         return common::make_unique<OptimizingLocalTrajectoryBuilder>(
+            local_trajectory_builder_options);
+      case proto::LocalTrajectoryBuilderOptions::ROBUST:
+        return common::make_unique<RobustOptimizingLocalTrajectoryBuilder>(
             local_trajectory_builder_options);
   }
   LOG(FATAL);
