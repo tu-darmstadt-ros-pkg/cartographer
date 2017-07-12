@@ -165,7 +165,9 @@ class InterpolatedTSDF {
         if(voxel->IsValid()) {
             q = voxel->GetSDF();
         }
-      }
+      }      
+      if(q > max_truncation_distance_)
+          LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
       return q;
   }
 

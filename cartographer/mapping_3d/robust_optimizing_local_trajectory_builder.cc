@@ -358,16 +358,13 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
     LOG(WARNING)<<summary.FullReport();
 
   TransformStates(matching_submap->local_pose);
-  if (num_accumulated_ < options_.scans_per_accumulation()) {
-    return nullptr;
-  }
 
   if (num_update_scans_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
           || num_accumulated_ < options_.scans_per_accumulation())
   {
       return nullptr;
   }
-  num_accumulated_ = 0;
+  num_update_scans_ = 0;
 
   const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
   sensor::RangeData accumulated_range_data_in_tracking = {

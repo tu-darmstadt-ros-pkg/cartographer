@@ -36,7 +36,8 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
       LOG(INFO) << "Initializing OptimizingTSDFLocalTrajectoryBuilder";
       return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
-      //todo(kdaun) remove continuous option
+    case proto::LocalTrajectoryBuilderOptions::ROBUST:
+      LOG(ERROR) << "RobustOptimizingTSDFLocalTrajectoryBuilder not implemented";
   }
   LOG(FATAL);
 }

@@ -577,7 +577,7 @@ OptimizingTSDFLocalTrajectoryBuilder::MatchBatchState(Batch &batch) {
                     batch.low_resolution_filtered_points.size()),
                 nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
-
+/*
     double covariance_weight = 5.05;
     std::array<double, 3> initial_translation = batch.state.translation;
     problem.AddResidualBlock(
@@ -586,7 +586,7 @@ OptimizingTSDFLocalTrajectoryBuilder::MatchBatchState(Batch &batch) {
                 covariance_weight,
                 batch.covariance)),
         nullptr, initial_translation.data(),
-        batch.state.translation.data());
+        batch.state.translation.data());*/
 
 
     problem.SetParameterization(batch.state.rotation.data(),
