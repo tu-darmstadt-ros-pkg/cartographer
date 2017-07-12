@@ -112,6 +112,7 @@ class OptimizingTSDFLocalTrajectoryBuilder
 
   State PredictState(const State& start_state, const common::Time start_time,
                      const common::Time end_time);
+  void MatchBatchState(Batch& batch);
 
   void RemoveObsoleteSensorData();
 

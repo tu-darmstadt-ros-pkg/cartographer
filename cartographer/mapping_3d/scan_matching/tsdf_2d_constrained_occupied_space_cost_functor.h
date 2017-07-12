@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
-#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_2D_CONSTRAINED_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_2D_CONSTRAINED_OCCUPIED_SPACE_COST_FUNCTOR_H_
 
 #include <open_chisel/Chisel.h>
 
@@ -33,29 +33,37 @@ namespace scan_matching {
 // Computes the cost of inserting occupied space described by the point cloud
 // into the map. The cost increases with the amount of free space that would be
 // replaced by occupied space.
-class TSDFOccupiedSpaceCostFunctor {
+class TSDF2DConstrainedOccupiedSpaceCostFunctor {
  public:
   // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
   // add to all poses, and point cloud.
-  TSDFOccupiedSpaceCostFunctor(const double scaling_factor,
+  TSDF2DConstrainedOccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
                            chisel::ChiselConstPtr<chisel::DistVoxel> tsdf,
+                           Eigen::Matrix<float, 2, 3> projection,
+                           Eigen::Vector3f rotation_axis,
                            int coarsening_factor, float max_truncation_distance)
       : scaling_factor_(scaling_factor),
         coarsening_factor_(coarsening_factor),
         point_cloud_(point_cloud),
-        interpolated_grid_(tsdf, max_truncation_distance) {}
+        interpolated_grid_(tsdf, max_truncation_distance),
+        projection_(projection),
+        rotation_axis_(rotation_axis) {}
 
-  TSDFOccupiedSpaceCostFunctor(const TSDFOccupiedSpaceCostFunctor&) = delete;
-  TSDFOccupiedSpaceCostFunctor& operator=(const TSDFOccupiedSpaceCostFunctor&) = delete;
+  TSDF2DConstrainedOccupiedSpaceCostFunctor(const TSDF2DConstrainedOccupiedSpaceCostFunctor&) = delete;
+  TSDF2DConstrainedOccupiedSpaceCostFunctor& operator=(const TSDF2DConstrainedOccupiedSpaceCostFunctorj&) = delete;
 
   template <typename T>
-  bool operator()(const T* const translation, const T* const rotation,
-                  T* const residual) const {
+  bool operator()(const T* const pose, T* residual) const {
+    Eigen::Matrix<T, 2, 1> translation_2d(pose[0], pose[1]);
+    Eigen::Rotation2D<T> rotation_2d(pose[2]);
+    Eigen::Matrix<T, 3, 1> translation_3d = translation_2d*projection_;
+    //todo(kdaun) check transforms (jet correct?)
+
     const transform::Rigid3<T> transform(
-        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(translation),
-        Eigen::Quaternion<T>(rotation[0], rotation[1], rotation[2],
-                             rotation[3]));
+        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(translation_3d),
+        Eigen::Quaternion<T>(rotation_axis_.x() * sin(pose[2]/2.), rotation_axis_.y() * sin(pose[2]/2.),
+            rotation_axis_.z() * sin(pose[2]/2.), cos(pose[2]/2.)));
     return Evaluate(transform, residual);
   }
 
@@ -76,11 +84,13 @@ class TSDFOccupiedSpaceCostFunctor {
   const double scaling_factor_;
   const int coarsening_factor_;
   const sensor::PointCloud& point_cloud_;
-  const InterpolatedTSDF interpolated_grid_;
+  const InterpolatedTSDF interpolated_grid_;  
+  const Eigen::Matrix<float, 2, 3> projection_;
+  const Eigen::Vector3f rotation_axis_;
 };
 
 }  // namespace scan_matching
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_TSDF_2D_CONSTRAINED_OCCUPIED_SPACE_COST_FUNCTOR_H_
