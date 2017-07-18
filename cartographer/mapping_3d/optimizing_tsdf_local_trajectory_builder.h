@@ -61,11 +61,15 @@ class OptimizingTSDFLocalTrajectoryBuilder
 
  private:
   struct State {
-    // TODO(hrapp): This should maybe use a CeresPose.
-    // Rotation quaternion as (w, x, y, z).
-    std::array<double, 4> rotation;
     std::array<double, 3> translation;
+    std::array<double, 4> rotation;  // Rotation quaternion as (w, x, y, z).
     std::array<double, 3> velocity;
+
+    State(const Eigen::Vector3d& translation,
+          const Eigen::Quaterniond& rotation, const Eigen::Vector3d& velocity)
+        : translation{{translation.x(), translation.y(), translation.z()}},
+          rotation{{rotation.w(), rotation.x(), rotation.y(), rotation.z()}},
+          velocity{{velocity.x(), velocity.y(), velocity.z()}} {}
 
     Eigen::Quaterniond ToQuaternion() const {
       return Eigen::Quaterniond(rotation[0], rotation[1], rotation[2],
@@ -122,6 +126,8 @@ class OptimizingTSDFLocalTrajectoryBuilder
 
   std::unique_ptr<InsertionResult> InsertIntoSubmap(const common::Time time, const sensor::RangeData& range_data_in_tracking,
       const transform::Rigid3d& pose_observation, const Eigen::Vector3f &sensor_origin);
+
+  void TransformStates(const transform::Rigid3d& transform);
 
   std::unique_ptr<InsertionResult> MaybeOptimize(common::Time time, const Eigen::Vector3f& origin);
 

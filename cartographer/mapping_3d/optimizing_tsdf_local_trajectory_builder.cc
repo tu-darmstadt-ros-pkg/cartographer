@@ -189,7 +189,8 @@ OptimizingTSDFLocalTrajectoryBuilder::AddRangefinderData(
     batches_.push_back(
         Batch(time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
-              State{{{1., 0., 0., 0.}}, {{0., 0., 0.}}, {{0., 0., 0.}}}, origin));
+              State(Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity(),
+                    Eigen::Vector3d::Zero()), origin));
   } else {
 
     const Batch& last_batch = batches_.back();
@@ -229,6 +230,19 @@ void OptimizingTSDFLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
       odometer_data_.size() > 1 &&
       (batches_.empty() || odometer_data_[1].time <= batches_.front().time)) {
     odometer_data_.pop_front();
+  }
+}
+
+void OptimizingTSDFLocalTrajectoryBuilder::TransformStates(
+    const transform::Rigid3d& transform) {
+  for (Batch& batch : batches_) {
+    const transform::Rigid3d new_pose = transform * batch.state.ToRigid();
+    const auto& velocity = batch.state.velocity;
+    const Eigen::Vector3d new_velocity =
+        transform.rotation() *
+        Eigen::Vector3d(velocity[0], velocity[1], velocity[2]);
+    batch.state =
+        State(new_pose.translation(), new_pose.rotation(), new_velocity);
   }
 }
 
@@ -275,10 +289,10 @@ OptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time time, con
 
 
     if (i == 0) {
-      problem.SetParameterBlockConstant(batch.state.translation.data());
-      problem.AddParameterBlock(batch.state.velocity.data(), 3);
-      problem.SetParameterBlockConstant(batch.state.velocity.data());
-      problem.SetParameterBlockConstant(batch.state.rotation.data());
+        problem.SetParameterBlockConstant(batch.state.translation.data());
+        problem.SetParameterBlockConstant(batch.state.rotation.data());
+        problem.AddParameterBlock(batch.state.velocity.data(), 3);
+        problem.SetParameterBlockConstant(batch.state.velocity.data());
     } else {
       problem.SetParameterization(batch.state.rotation.data(),
                                   new ceres::QuaternionParameterization());
@@ -537,11 +551,7 @@ OptimizingTSDFLocalTrajectoryBuilder::PredictState(const State& start_state,
       start_rotation * result.delta_velocity -
       gravity_constant_ * delta_time_seconds * Eigen::Vector3d::UnitZ();
 
-
-  return State{
-      {{orientation.w(), orientation.x(), orientation.y(), orientation.z()}},
-      {{position.x(), position.y(), position.z()}},
-      {{velocity.x(), velocity.y(), velocity.z()}}};
+  return State(position, orientation, velocity);
 }
 
 void
