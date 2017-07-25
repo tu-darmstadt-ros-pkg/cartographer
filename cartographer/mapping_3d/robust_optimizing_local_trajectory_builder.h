@@ -24,6 +24,7 @@
 #include "cartographer/common/time.h"
 #include "cartographer/mapping/global_trajectory_builder_interface.h"
 #include "cartographer/mapping_3d/imu_integration.h"
+#include "cartographer/mapping/imu_tracker.h"
 #include "cartographer/mapping_3d/local_trajectory_builder_interface.h"
 #include "cartographer/mapping_3d/motion_filter.h"
 #include "cartographer/mapping_3d/proto/local_trajectory_builder_options.pb.h"
@@ -124,6 +125,7 @@ class RobustOptimizingLocalTrajectoryBuilder
   double gravity_constant_ = 9.8;
   std::deque<ImuData> imu_data_;
   std::deque<OdometerData> odometer_data_;
+  std::unique_ptr<mapping::ImuTracker> imu_tracker_;
 
   PoseEstimate last_pose_estimate_;
 

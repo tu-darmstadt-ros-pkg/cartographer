@@ -127,6 +127,15 @@ void RobustOptimizingLocalTrajectoryBuilder::AddImuData(
       time, linear_acceleration, angular_velocity,
   });
   RemoveObsoleteSensorData();
+
+  const bool initial_imu_data = (imu_tracker_ == nullptr);
+  if (initial_imu_data) {
+    imu_tracker_ = common::make_unique<mapping::ImuTracker>(
+        10.0, time);
+  }
+  imu_tracker_->Advance(time);
+  imu_tracker_->AddImuLinearAccelerationObservation(linear_acceleration);
+  imu_tracker_->AddImuAngularVelocityObservation(angular_velocity);
 }
 
 void RobustOptimizingLocalTrajectoryBuilder::AddOdometerData(
@@ -173,13 +182,13 @@ RobustOptimizingLocalTrajectoryBuilder::AddRangefinderData(
       low_resolution_options);
   const sensor::PointCloud low_resolution_filtered_points =
       low_resolution_adaptive_voxel_filter.Filter(point_cloud);
-
+  imu_tracker_->Advance(time);
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
     batches_.push_back(
         Batch{time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
-              State(Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity(),
+              State(Eigen::Vector3d::Zero(), imu_tracker_->orientation(),
                     Eigen::Vector3d::Zero())});
   } else {
     const Batch& last_batch = batches_.back();
@@ -366,7 +375,8 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
   }
   num_update_scans_ = 0;
 
-  const transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+  transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 
@@ -476,6 +486,8 @@ RobustOptimizingLocalTrajectoryBuilder::PredictState(const State& start_state,
 
   return State(position, orientation, velocity);
 }
+
+
 
 }  // namespace mapping_3d
 }  // namespace cartographer
