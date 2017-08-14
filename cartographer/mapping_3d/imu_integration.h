@@ -56,13 +56,18 @@ IntegrateImuResult<T> IntegrateImu(
     std::deque<ImuData>::const_iterator* it) {
   CHECK_LE(start_time, end_time);
   CHECK(*it != imu_data.cend());
+
+  //We have to compensate for the calibration buffer
+  while(((*it) + 1 != imu_data.cend()) && ((*it + 1)->time <= start_time)) {
+      ++(*it);
+  }
+
   CHECK_LE((*it)->time, start_time);
   if ((*it) + 1 != imu_data.cend()) {
     CHECK_GT(((*it) + 1)->time, start_time);
   }
 
   common::Time current_time = start_time;
-
   IntegrateImuResult<T> result = {Eigen::Matrix<T, 3, 1>::Zero(),
                                   Eigen::Quaterniond::Identity().cast<T>()};
   while (current_time < end_time) {
@@ -89,6 +94,64 @@ IntegrateImuResult<T> IntegrateImu(
   }
   return result;
 }
+
+template <typename T>
+IntegrateImuResult<T> IntegrateImuExperimental(
+    const std::deque<ImuData>& imu_data,
+    const Eigen::Transform<T, 3, Eigen::Affine>&
+        linear_acceleration_calibration,
+    const Eigen::Transform<T, 3, Eigen::Affine>& angular_velocity_calibration,
+    const common::Time time_ref, const T duration_ref_to_start, const T duration_ref_to_end,
+    std::deque<ImuData>::const_iterator* it) {
+  //CHECK_LE(start_time, end_time); //todo(kdaun) reimplement
+ /* if(start_time <= end_time)
+  {
+    LOG(ERROR)<<"start_time <= end_time";
+  }*/
+  CHECK(*it != imu_data.cend());
+
+  //We have to compensate for the calibration buffer
+  while(((*it) + 1 != imu_data.cend()) && ((T)common::ToSeconds((*it + 1)->time - time_ref)  <= duration_ref_to_start)) {
+      ++(*it);
+  }
+/*
+  CHECK_LE((*it)->time, start_time);
+  if ((*it) + 1 != imu_data.cend()) {
+    CHECK_GT(((*it) + 1)->time, start_time);
+  }*/
+
+  T current_duration = duration_ref_to_start;
+  if((T)common::ToSeconds((*it)->time - time_ref) > duration_ref_to_start)
+    current_duration = (T)common::ToSeconds((*it)->time - time_ref); // todo(kdaun) solve this properly, decreasing iterator?
+  IntegrateImuResult<T> result = {Eigen::Matrix<T, 3, 1>::Zero(),
+                                  Eigen::Quaterniond::Identity().cast<T>()};
+
+  while (current_duration < duration_ref_to_end) {
+    common::Time next_imu_data = common::Time::max();
+    if ((*it) + 1 != imu_data.cend()) {
+      next_imu_data = ((*it) + 1)->time;
+    }
+    T candidate_duration = (T)common::ToSeconds(next_imu_data - time_ref);
+    T next_duration = duration_ref_to_end < candidate_duration ? duration_ref_to_end : candidate_duration;
+    const T delta_t = next_duration - current_duration;;
+
+    const Eigen::Matrix<T, 3, 1> delta_angle =
+        (angular_velocity_calibration * (*it)->angular_velocity.cast<T>()) *
+        delta_t;
+    result.delta_rotation *=
+        transform::AngleAxisVectorToRotationQuaternion(delta_angle);
+    result.delta_velocity +=
+        result.delta_rotation * ((linear_acceleration_calibration *
+                                  (*it)->linear_acceleration.cast<T>()) *
+                                 delta_t);
+    current_duration = next_duration;
+    if (current_duration == (T)common::ToSeconds(next_imu_data - time_ref)) {
+      ++(*it);
+    }
+  }
+  return result;
+}
+
 
 }  // namespace mapping_3d
 }  // namespace cartographer

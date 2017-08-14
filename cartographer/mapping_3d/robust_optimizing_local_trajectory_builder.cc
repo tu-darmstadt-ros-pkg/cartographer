@@ -26,6 +26,7 @@
 #include "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.pb.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/translation_cost_function.h"
+#include "cartographer/mapping_3d/temporal_rotation_cost_function.h"
 #include "cartographer/transform/transform.h"
 #include "cartographer/transform/transform_interpolation_buffer.h"
 #include "glog/logging.h"
@@ -189,14 +190,14 @@ RobustOptimizingLocalTrajectoryBuilder::AddRangefinderData(
         Batch{time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
               State(Eigen::Vector3d::Zero(), imu_tracker_->orientation(),
-                    Eigen::Vector3d::Zero())});
+                    Eigen::Vector3d::Zero()), 0.0});
   } else {
     const Batch& last_batch = batches_.back();
     batches_.push_back(Batch{
         time, point_cloud, high_resolution_filtered_points,
         low_resolution_filtered_points,
         PredictState(last_batch.state, last_batch.time, time),
-    });
+        last_batch.delay_imu});
   }
   ++num_accumulated_;
   ++num_update_scans_;
@@ -217,7 +218,7 @@ void RobustOptimizingLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
   }
 
   while (imu_data_.size() > 1 &&
-         (batches_.empty() || imu_data_[1].time <= batches_.front().time)) {
+         (batches_.empty() || imu_data_[1].time <= (batches_.front().time - common::FromSeconds(4.0)))) {
     imu_data_.pop_front();
   }
 
@@ -311,7 +312,7 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
         nullptr, batches_[i - 1].state.translation.data(),
         batches_[i].state.translation.data(),
         batches_[i - 1].state.velocity.data());
-
+/*
     const IntegrateImuResult<double> result =
         IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
     problem.AddResidualBlock(
@@ -321,7 +322,19 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
                     .rotation_weight(),
                 result.delta_rotation)),
         nullptr, batches_[i - 1].state.rotation.data(),
-        batches_[i].state.rotation.data());
+        batches_[i].state.rotation.data());*/
+
+    problem.AddResidualBlock(
+            new ceres::AutoDiffCostFunction<TemporalRotationCostFunction, 4, 4, 4, 1, 1>(
+                new TemporalRotationCostFunction(
+                    options_.optimizing_local_trajectory_builder_options()
+                        .rotation_weight(),
+                    imu_data_, batches_[i - 1].time,
+                    batches_[i].time)),
+            nullptr, batches_[i - 1].state.rotation.data(),
+            batches_[i].state.rotation.data(),
+            &batches_[i - 1].delay_imu,
+            &batches_[i].delay_imu);
   }
 
   if (odometer_data_.size() > 1) {
@@ -382,6 +395,7 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
 
   int i_batch = 0;
   for (const auto& batch : batches_) {
+    LOG(INFO)<<"imu_delay: "<<std::to_string(batch.delay_imu);
     const transform::Rigid3f transform =
         (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
     for (const Eigen::Vector3f& point : batch.points) {

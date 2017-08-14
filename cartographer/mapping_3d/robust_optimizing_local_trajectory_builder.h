@@ -90,6 +90,7 @@ class RobustOptimizingLocalTrajectoryBuilder
     sensor::PointCloud high_resolution_filtered_points;
     sensor::PointCloud low_resolution_filtered_points;
     State state;
+    double delay_imu;
   };
 
   struct OdometerData {
