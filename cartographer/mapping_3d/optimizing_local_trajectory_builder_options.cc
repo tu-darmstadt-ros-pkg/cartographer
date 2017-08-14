@@ -41,6 +41,12 @@ CreateOptimizingLocalTrajectoryBuilderOptions(
       parameter_dictionary->GetInt("scans_per_map_update"));
   options.set_scans_per_optimization_update(
       parameter_dictionary->GetInt("scans_per_optimization_update"));
+  options.set_use_imu_time_calibration(
+      parameter_dictionary->GetBool("use_imu_time_calibration"));
+  options.set_imu_time_weight(
+      parameter_dictionary->GetDouble("imu_time_weight"));
+  options.set_imu_initial_delay(
+      parameter_dictionary->GetDouble("imu_initial_delay"));
   return options;
 }
 

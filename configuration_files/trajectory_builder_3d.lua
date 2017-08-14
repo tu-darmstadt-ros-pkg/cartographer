@@ -115,5 +115,8 @@ TRAJECTORY_BUILDER_3D = {
     odometry_rotation_weight = 1e4,
     scans_per_map_update = 10,
     scans_per_optimization_update = 10,
+    use_imu_time_calibration = false;
+    imu_time_weight = 1e5;
+    imu_initial_delay = 0.0;
   },
 }

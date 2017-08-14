@@ -121,8 +121,10 @@ IntegrateImuResult<T> IntegrateImuExperimental(
   }*/
 
   T current_duration = duration_ref_to_start;
-  if((T)common::ToSeconds((*it)->time - time_ref) > duration_ref_to_start)
+  if((T)common::ToSeconds((*it)->time - time_ref) > duration_ref_to_start) {
+    LOG(WARNING)<<"Duration hack execution";
     current_duration = (T)common::ToSeconds((*it)->time - time_ref); // todo(kdaun) solve this properly, decreasing iterator?
+  }
   IntegrateImuResult<T> result = {Eigen::Matrix<T, 3, 1>::Zero(),
                                   Eigen::Quaterniond::Identity().cast<T>()};
 

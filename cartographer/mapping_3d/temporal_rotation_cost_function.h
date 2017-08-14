@@ -27,11 +27,13 @@ namespace mapping_3d {
 // Penalizes differences between IMU data and optimized orientations.
 class TemporalRotationCostFunction {
  public:
-  TemporalRotationCostFunction(const double scaling_factor,
+  TemporalRotationCostFunction(const double rotation_scaling_factor,
+                       const double time_scaling_factor,
                        const std::deque<ImuData>& imu_data,
                        const common::Time& time_start,
                        const common::Time& time_end)
-      : scaling_factor_(scaling_factor),
+      : rotation_scaling_factor_(rotation_scaling_factor),
+        time_scaling_factor_(time_scaling_factor),
         imu_data_(imu_data),
         time_start_(time_start),
         time_end_(time_end) {}
@@ -60,10 +62,10 @@ class TemporalRotationCostFunction {
                                    end_rotation[2], end_rotation[3]);
     const Eigen::Quaternion<T> error =
         end.conjugate() * start * delta_rotation_imu_frame_;
-    residual[0] = scaling_factor_ * error.x();
-    residual[1] = scaling_factor_ * error.y();
-    residual[2] = scaling_factor_ * error.z();
-    residual[3] = 1e3 * (end_delay[0] - start_delay[0]); //todo(kdaun) separate scaling factor
+    residual[0] = rotation_scaling_factor_ * error.x();
+    residual[1] = rotation_scaling_factor_ * error.y();
+    residual[2] = rotation_scaling_factor_ * error.z();
+    residual[3] = time_scaling_factor_ * (end_delay[0] - start_delay[0]); //todo(kdaun) separate scaling factor
     return true;
   }
 
@@ -98,7 +100,8 @@ class TemporalRotationCostFunction {
     }*/
 
  private:
-  const double scaling_factor_;
+  const double rotation_scaling_factor_;
+  const double time_scaling_factor_;
   std::deque<ImuData> imu_data_;
   common::Time time_start_;
   common::Time time_end_;

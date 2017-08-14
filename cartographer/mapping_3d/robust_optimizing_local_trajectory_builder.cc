@@ -186,11 +186,13 @@ RobustOptimizingLocalTrajectoryBuilder::AddRangefinderData(
   imu_tracker_->Advance(time);
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
+    double imu_initial_delay = options_.optimizing_local_trajectory_builder_options().use_imu_time_calibration() ?
+          options_.optimizing_local_trajectory_builder_options().imu_initial_delay() : 0.0;
     batches_.push_back(
         Batch{time, point_cloud, high_resolution_filtered_points,
               low_resolution_filtered_points,
               State(Eigen::Vector3d::Zero(), imu_tracker_->orientation(),
-                    Eigen::Vector3d::Zero()), 0.0});
+                    Eigen::Vector3d::Zero()), imu_initial_delay});
   } else {
     const Batch& last_batch = batches_.back();
     batches_.push_back(Batch{
@@ -312,29 +314,37 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
         nullptr, batches_[i - 1].state.translation.data(),
         batches_[i].state.translation.data(),
         batches_[i - 1].state.velocity.data());
-/*
-    const IntegrateImuResult<double> result =
-        IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<RotationCostFunction, 3, 4, 4>(
-            new RotationCostFunction(
-                options_.optimizing_local_trajectory_builder_options()
-                    .rotation_weight(),
-                result.delta_rotation)),
-        nullptr, batches_[i - 1].state.rotation.data(),
-        batches_[i].state.rotation.data());*/
 
-    problem.AddResidualBlock(
-            new ceres::AutoDiffCostFunction<TemporalRotationCostFunction, 4, 4, 4, 1, 1>(
-                new TemporalRotationCostFunction(
-                    options_.optimizing_local_trajectory_builder_options()
-                        .rotation_weight(),
-                    imu_data_, batches_[i - 1].time,
-                    batches_[i].time)),
-            nullptr, batches_[i - 1].state.rotation.data(),
-            batches_[i].state.rotation.data(),
-            &batches_[i - 1].delay_imu,
-            &batches_[i].delay_imu);
+    if(options_.optimizing_local_trajectory_builder_options().use_imu_time_calibration()){
+      problem.AddResidualBlock(
+              new ceres::AutoDiffCostFunction<TemporalRotationCostFunction, 4, 4, 4, 1, 1>(
+                  new TemporalRotationCostFunction(
+                      options_.optimizing_local_trajectory_builder_options()
+                          .rotation_weight(),
+                      options_.optimizing_local_trajectory_builder_options()
+                          .imu_time_weight(),
+                      imu_data_, batches_[i - 1].time,
+                      batches_[i].time)),
+              nullptr, batches_[i - 1].state.rotation.data(),
+              batches_[i].state.rotation.data(),
+              &batches_[i - 1].delay_imu,
+              &batches_[i].delay_imu);
+    }
+    else {
+      const IntegrateImuResult<double> result =
+          IntegrateImu(imu_data_, batches_[i - 1].time, batches_[i].time, &it);
+      problem.AddResidualBlock(
+          new ceres::AutoDiffCostFunction<RotationCostFunction, 3, 4, 4>(
+              new RotationCostFunction(
+                  options_.optimizing_local_trajectory_builder_options()
+                      .rotation_weight(),
+                  result.delta_rotation)),
+          nullptr, batches_[i - 1].state.rotation.data(),
+          batches_[i].state.rotation.data());
+    }
+
+
+
   }
 
   if (odometer_data_.size() > 1) {
@@ -394,8 +404,8 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
       Eigen::Vector3f::Zero(), {}, {}};
 
   int i_batch = 0;
+  LOG(INFO)<<"imu_delay: "<<std::to_string(batches_[0].delay_imu);
   for (const auto& batch : batches_) {
-    LOG(INFO)<<"imu_delay: "<<std::to_string(batch.delay_imu);
     const transform::Rigid3f transform =
         (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
     for (const Eigen::Vector3f& point : batch.points) {

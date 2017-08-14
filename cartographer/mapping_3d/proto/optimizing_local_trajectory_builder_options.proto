@@ -26,4 +26,7 @@ message OptimizingLocalTrajectoryBuilderOptions {
   optional double odometry_rotation_weight = 5;  
   optional int32 scans_per_map_update = 8;  
   optional int32 scans_per_optimization_update = 9;
+  optional bool use_imu_time_calibration = 10;
+  optional double imu_time_weight = 11;
+  optional double imu_initial_delay = 12;
 }
