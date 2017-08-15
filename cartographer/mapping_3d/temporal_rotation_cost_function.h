@@ -65,7 +65,7 @@ class TemporalRotationCostFunction {
     residual[0] = rotation_scaling_factor_ * error.x();
     residual[1] = rotation_scaling_factor_ * error.y();
     residual[2] = rotation_scaling_factor_ * error.z();
-    residual[3] = time_scaling_factor_ * (end_delay[0] - start_delay[0]); //todo(kdaun) separate scaling factor
+    residual[3] = time_scaling_factor_ * (end_delay[0] - start_delay[0]);
     return true;
   }
 
