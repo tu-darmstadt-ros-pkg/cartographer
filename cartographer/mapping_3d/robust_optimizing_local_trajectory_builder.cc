@@ -398,13 +398,15 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
   }
   num_update_scans_ = 0;
 
-  transform::Rigid3d optimized_pose = batches_.back().state.ToRigid();
+  const int scans_per_map_update =
+      options_.optimizing_local_trajectory_builder_options().scans_per_map_update();
+  transform::Rigid3d optimized_pose = batches_[scans_per_map_update - 1].state.ToRigid();
 
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 
   int i_batch = 0;
-  LOG(INFO)<<"imu_delay: "<<std::to_string(batches_[0].delay_imu);
+  LOG(INFO)<<"imu_delay: "<<std::to_string(batches_.front().delay_imu);
   for (const auto& batch : batches_) {
     const transform::Rigid3f transform =
         (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
@@ -412,11 +414,9 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
     i_batch++;
-    if(i_batch == options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
-            && num_accumulated_ != options_.scans_per_accumulation()) //todo(kdaun) check if necessary
+    if(i_batch == scans_per_map_update)
         break;
   }
-
   return AddAccumulatedRangeData(time, optimized_pose,
                                  accumulated_range_data_in_tracking);
 }
