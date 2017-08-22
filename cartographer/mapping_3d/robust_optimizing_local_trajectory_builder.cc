@@ -406,7 +406,7 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
       Eigen::Vector3f::Zero(), {}, {}};
 
   int i_batch = 0;
-  LOG(INFO)<<"imu_delay: "<<std::to_string(batches_.front().delay_imu);
+  //LOG(INFO)<<"imu_delay: "<<std::to_string(batches_.front().delay_imu);
   for (const auto& batch : batches_) {
     const transform::Rigid3f transform =
         (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
@@ -417,7 +417,7 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
     if(i_batch == scans_per_map_update)
         break;
   }
-  return AddAccumulatedRangeData(time, optimized_pose,
+  return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu), optimized_pose,
                                  accumulated_range_data_in_tracking);
 }
 
