@@ -56,9 +56,11 @@ class Submaps : public mapping::Submaps {
   Submaps& operator=(const Submaps&) = delete;
 
   const Submap* Get(int index) const override;
-
   const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override{
+      LOG(FATAL) << "Not implemented."; }  
+  virtual const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index){
       LOG(FATAL) << "Not implemented."; }
+
   int size() const override;
   void SubmapToProto(
       int index, const transform::Rigid3d& global_submap_pose,

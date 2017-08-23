@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_TSDFS_H_
-#define CARTOGRAPHER_MAPPING_3D_TSDFS_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_VOXBLOX_TSDFS_H_
+#define CARTOGRAPHER_MAPPING_3D_VOXBLOX_TSDFS_H_
 
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <open_chisel/Chisel.h>
 
 #include "Eigen/Geometry"
 #include "cartographer/common/port.h"
@@ -35,6 +33,10 @@
 #include "cartographer/mapping_3d/range_data_inserter.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/transform/transform.h"
+
+#include <voxblox/core/common.h>
+#include <voxblox/core/tsdf_map.h>
+#include <voxblox/integrator/tsdf_integrator.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -51,12 +53,12 @@ proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
 proto::TSDFsOptions CreateTSDFsOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
-struct TSDF : public mapping::Submap {
-  TSDF(float high_resolution, float low_resolution,
+struct VoxbloxTSDF : public mapping::Submap {
+  VoxbloxTSDF(float high_resolution, float low_resolution,
          const transform::Rigid3d& origin, int begin_range_data_index,
          float max_truncation_distance, Eigen::Vector3i& chunk_size);
 
-  chisel::ChiselPtr<chisel::DistVoxel> tsdf;
+  std::shared_ptr<voxblox::TsdfMap> tsdf;
   bool finished = false;
   float max_truncation_distance;
   std::vector<int> trajectory_node_indices;
@@ -64,20 +66,19 @@ struct TSDF : public mapping::Submap {
 
 
 // A container for Truncated Signed Distance Fields similar to the Submaps container.
-class TSDFs : public mapping::Submaps {
+class VoxbloxTSDFs : public mapping::Submaps {
  public:
-  TSDFs();
-  TSDFs(const proto::TSDFsOptions& options);
+  VoxbloxTSDFs();
+  VoxbloxTSDFs(const proto::TSDFsOptions& options);
 
-  TSDFs(const TSDFs&) = delete;
-  TSDFs& operator=(const TSDFs&) = delete;
+  VoxbloxTSDFs(const VoxbloxTSDFs&) = delete;
+  VoxbloxTSDFs& operator=(const VoxbloxTSDFs&) = delete;
 
-  const TSDF* Get(int index) const override;
-  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override;
-  virtual const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index){
+  const VoxbloxTSDF* Get(int index) const override;
+  const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
-
-  const chisel::ProjectionIntegrator* GetIntegrator(int index) const;
+  const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index) const override;
+  const std::shared_ptr<voxblox::TsdfIntegratorBase> GetIntegrator(int index) const;
   int size() const override;
 
     // Returns the indices of the Submap into which point clouds will
@@ -122,7 +123,7 @@ class TSDFs : public mapping::Submaps {
   // last is the corresponding probability value. We batch them together like
   // this to only have one vector and have better cache locality.
   std::vector<Eigen::Array4i> ExtractVoxelData(
-      const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid, const transform::Rigid3f& transform,
+      const std::shared_ptr<voxblox::TsdfMap> hybrid_grid, const transform::Rigid3f& transform,
       Eigen::Array2i* min_index, Eigen::Array2i* max_index) const;
   // Builds texture data containing interleaved value and alpha for the
   // visualization from 'accumulated_pixel_data'.
@@ -133,8 +134,8 @@ class TSDFs : public mapping::Submaps {
 
   const proto::TSDFsOptions options_;
 
-  std::vector<std::unique_ptr<TSDF>> submaps_;
-  std::vector<chisel::ProjectionIntegrator> projection_integrators_;
+  std::vector<std::unique_ptr<VoxbloxTSDF>> submaps_;
+  std::vector<std::shared_ptr<voxblox::TsdfIntegratorBase>> projection_integrators_;
 
   // Number of RangeData inserted.
   int num_range_data_ = 0;
@@ -146,4 +147,4 @@ class TSDFs : public mapping::Submaps {
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_TSDFS_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_VOXBLOX_TSDFS_H_
