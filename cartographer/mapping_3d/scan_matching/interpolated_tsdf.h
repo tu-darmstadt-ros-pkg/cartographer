@@ -167,7 +167,11 @@ class InterpolatedTSDF {
         }
       }      
       if(q > max_truncation_distance_)
+      {
           LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
+          LOG(WARNING)<<"weight: "<< voxel->GetWeight();
+          q = max_truncation_distance_;
+      }
       return q;
   }
 

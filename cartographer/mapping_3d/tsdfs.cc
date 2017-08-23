@@ -165,7 +165,7 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
         //min and max dist are already filtered in the local trajectory builder
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
                                          chisel_pose, 0.0f, HUGE_VALF);
-        //chisel_tsdf->UpdateMeshes();
+        chisel_tsdf->UpdateMeshes();
     }
 
     ++num_range_data_in_last_submap_;

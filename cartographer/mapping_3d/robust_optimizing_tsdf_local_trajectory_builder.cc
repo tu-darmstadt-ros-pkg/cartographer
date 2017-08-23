@@ -451,7 +451,8 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
       ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
 
-  return AddAccumulatedRangeData(time, optimized_pose,
+  return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu),
+                                 optimized_pose,
                                  accumulated_range_data_in_tracking,
                                  sensor_origin);
 }
