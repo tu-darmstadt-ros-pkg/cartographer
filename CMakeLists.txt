@@ -42,6 +42,10 @@ if(SPHINX_FOUND)
   add_subdirectory("docs")
 endif()
 
+
+find_package(voxblox REQUIRED)
+find_package(voxblox_ros REQUIRED)
+
 # Install catkin package.xml
 install(FILES package.xml DESTINATION share/cartographer)
 
@@ -156,6 +160,15 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${GMOCK_LIBRARY})
 set(TARGET_COMPILE_FLAGS "${TARGET_COMPILE_FLAGS} ${GOOG_CXX_FLAGS}")
 set_target_properties(${PROJECT_NAME} PROPERTIES
   COMPILE_FLAGS ${TARGET_COMPILE_FLAGS})
+
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+  "${voxblox_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME} PUBLIC ${voxblox_LIBRARIES})
+
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+  "${voxblox_ros_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME} PUBLIC ${voxblox_ros_LIBRARIES})
+
 
 install(
   TARGETS ${PROJECT_NAME}
