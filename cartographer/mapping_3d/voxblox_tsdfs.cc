@@ -186,65 +186,6 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
     }
 }
 
-void VoxbloxTSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
-                            const Eigen::Quaterniond& gravity_alignment)
-{
-    LOG(FATAL)<<"InsertRangeData for CombinedRangeData is not implemented";
-    /*CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
-    ++num_range_data_;
-
-    for(int insertion_index : insertion_indices())
-    {
-        submaps_[insertion_index]->tsdf->GetMutableChunkManager().clearIncrementalChanges();
-    }
-
-    for(CombinedRangeData& combined_data : combined_range_data)
-    {
-        chisel::PointCloud cloudOut;
-        cloudOut.GetMutablePoints().resize(combined_data.range_data_.returns.size());
-
-        size_t i = 0;
-        for (const Eigen::Vector3f& pt : combined_data.range_data_.returns)
-        {
-            chisel::Vec3& xyz = cloudOut.GetMutablePoints().at(i);
-            xyz(0) = pt(0);
-            xyz(1) = pt(1);
-            xyz(2) = pt(2);
-            i++;
-        }
-
-        //LOG(INFO)<<"sensor: "<<sensor_origin;
-        chisel::Vec3 chisel_pose;
-        chisel_pose.x() = combined_data.pose_.translation().x();
-        chisel_pose.y() = combined_data.pose_.translation().y();
-        chisel_pose.z() = combined_data.pose_.translation().z();
-
-        for(int insertion_index : insertion_indices())
-        {
-            chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
-            //TSDF* submap = submaps_[insertion_index].get();
-            const chisel::ProjectionIntegrator& projection_integrator =
-                    projection_integrators_[insertion_index];
-            //min and max dist are already filtered in the local trajectory builder
-            chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
-                                             chisel_pose, 0.0f, HUGE_VALF);
-        }
-    }
-
-    for(int insertion_index : insertion_indices())
-    {
-        //submaps_[insertion_index]->tsdf->UpdateMeshes();
-    }
-
-
-    ++num_range_data_in_last_submap_;
-    if (num_range_data_in_last_submap_ == options_.num_range_data()) {
-       AddTSDF(transform::Rigid3d(combined_range_data.back().range_data_.origin.cast<double>(),
-                                 gravity_alignment)); //todo(kdaun) check transforms
-    }*/
-}
-
-
 
 std::vector<Eigen::Array4i> VoxbloxTSDFs::ExtractVoxelData(
     const std::shared_ptr<voxblox::TsdfMap> hybrid_grid, const transform::Rigid3f& transform,

@@ -41,12 +41,6 @@
 namespace cartographer {
 namespace mapping_3d {
 
-struct CombinedRangeData
-{
-    sensor::RangeData range_data_;
-    transform::Rigid3d pose_;
-};
-
 proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
@@ -89,8 +83,6 @@ class VoxbloxTSDFs : public mapping::Submaps {
                        const Eigen::Quaterniond &gravity_alignment,
                        const Eigen::Vector3f& sensor_origin);
 
-  void InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
-                       const Eigen::Quaterniond &gravity_alignment);
 
 
   void SubmapToProto(

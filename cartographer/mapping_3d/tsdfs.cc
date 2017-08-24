@@ -219,7 +219,7 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
         }
     }
 
-    for(int insertion_index : insertion_indices())
+    //for(int insertion_index : insertion_indices())
     {
         //submaps_[insertion_index]->tsdf->UpdateMeshes();
     }
