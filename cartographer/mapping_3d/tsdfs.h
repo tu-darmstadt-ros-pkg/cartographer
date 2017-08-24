@@ -74,7 +74,7 @@ class TSDFs : public mapping::Submaps {
 
   const TSDF* Get(int index) const override;
   const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override;
-  virtual const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index){
+  const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
 
   const chisel::ProjectionIntegrator* GetIntegrator(int index) const;

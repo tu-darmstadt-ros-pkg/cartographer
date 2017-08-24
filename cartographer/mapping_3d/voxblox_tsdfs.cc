@@ -76,12 +76,16 @@ VoxbloxTSDF::VoxbloxTSDF(const float high_resolution, const float low_resolution
                float max_truncation_distance, Eigen::Vector3i& chunk_size)
     : mapping::Submap(origin),
       max_truncation_distance(max_truncation_distance){
-    /*chisel::Vec3 tsdf_origin;
+    chisel::Vec3 tsdf_origin;
     tsdf_origin.x() = origin.translation().x();
     tsdf_origin.y() = origin.translation().y();
     tsdf_origin.z() = origin.translation().z();
-      tsdf.reset(new chisel::Chisel<chisel::DistVoxel>
-               (chunk_size, high_resolution, false, tsdf_origin));*/
+
+
+    voxblox::TsdfMap::Config config;
+    //config.tsdf_voxel_size = static_cast<FloatingPoint>(voxel_size); //todo(kdaun) set params from config
+    //config.tsdf_voxels_per_side = voxels_per_side;
+    tsdf.reset(new voxblox::TsdfMap(config));
 }
 
 
@@ -133,51 +137,59 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
                             const Eigen::Quaterniond& gravity_alignment,
                             const Eigen::Vector3f& sensor_origin)
 {
-    /*CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
+    CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
 
-    chisel::PointCloud cloudOut;
-    cloudOut.GetMutablePoints().resize(range_data_in_tracking.returns.size());
+    voxblox::Transformation T_G_C;
+    T_G_C.setIdentity();
+    voxblox::Pointcloud points_C;
+    voxblox::Colors colors;
+    points_C.reserve(range_data_in_tracking.returns.size());
+    colors.reserve(range_data_in_tracking.returns.size());
 
-    size_t i = 0;
     for (const Eigen::Vector3f& pt : range_data_in_tracking.returns)
     {
-        chisel::Vec3& xyz =  cloudOut.GetMutablePoints().at(i);
-        xyz(0) = pt(0);
-        xyz(1) = pt(1);
-        xyz(2) = pt(2);
-        i++;
+        points_C.push_back(voxblox::Point(pt(0),
+                                 pt(1),
+                                 pt(2)));
+        colors.push_back(
+            voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
     }
 
-    //LOG(INFO)<<"sensor: "<<sensor_origin;
-    chisel::Vec3 chisel_pose;
-    chisel_pose.x() = sensor_origin.x();
-    chisel_pose.y() = sensor_origin.y();
-    chisel_pose.z() = sensor_origin.z();
+    LOG(INFO)<<"position before"<<T_G_C.getPosition();
+    T_G_C.getPosition()[0]= sensor_origin.x();
+    T_G_C.getPosition()[0]= sensor_origin.y();
+    T_G_C.getPosition()[0]= sensor_origin.z();
+    LOG(INFO)<<"position after"<<T_G_C.getPosition();
+
 
     for(int insertion_index : insertion_indices())
     {
-        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
-        //TSDF* submap = submaps_[insertion_index].get();
-        const chisel::ProjectionIntegrator& projection_integrator =
+        //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
+        std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
                 projection_integrators_[insertion_index];
+
+        tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
+
+        /*
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
         //min and max dist are already filtered in the local trajectory builder
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
                                          chisel_pose, 0.0f, HUGE_VALF);
-        chisel_tsdf->UpdateMeshes();
+        chisel_tsdf->UpdateMeshes();*/
     }
 
     ++num_range_data_in_last_submap_;
     if (num_range_data_in_last_submap_ == options_.num_range_data()) {
       AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
-                                 gravity_alignment)); //todo(kdaun) check transforms
-    }*/
+                                 gravity_alignment));
+    }
 }
 
 void VoxbloxTSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
                             const Eigen::Quaterniond& gravity_alignment)
 {
+    LOG(FATAL)<<"InsertRangeData for CombinedRangeData is not implemented";
     /*CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
 
@@ -238,6 +250,7 @@ std::vector<Eigen::Array4i> VoxbloxTSDFs::ExtractVoxelData(
     const std::shared_ptr<voxblox::TsdfMap> hybrid_grid, const transform::Rigid3f& transform,
     Eigen::Array2i* min_index, Eigen::Array2i* max_index) const {
   std::vector<Eigen::Array4i> voxel_indices_and_probabilities;
+  LOG(WARNING)<<"ExtractVoxelData is not implemented";
   /*const float resolution = hybrid_grid->GetChunkManager().GetResolution();
   const float resolution_inverse = 1. / hybrid_grid->GetChunkManager().GetResolution();
   const chisel::AABB& bounding_box = hybrid_grid->GetChunkManager().GetBoundingBox();
@@ -328,7 +341,8 @@ std::vector<VoxbloxTSDFs::PixelData> VoxbloxTSDFs::AccumulatePixelData(
 
 void VoxbloxTSDFs::SubmapToProto(
     int index, const transform::Rigid3d& global_submap_pose,
-    mapping::proto::SubmapQuery::Response* const response) const {
+    mapping::proto::SubmapQuery::Response* const response) const {    
+    LOG(WARNING)<<"SubmapToProto is not implemented";
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
     /*const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid = Get(index)->tsdf;
@@ -365,7 +379,7 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
     VoxbloxTSDF* submap = submaps_[size() - 2].get();
     CHECK(!submap->finished);
     submap->finished = true;
-  }/*
+  }
   double resolution = options_.high_resolution();
   double truncation_distance = options_.projection_integrator_options().truncation_distance();
   double truncation_scale = options_.projection_integrator_options().truncation_scale();
@@ -377,19 +391,30 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
   chunk_size.z() = options_.chuck_size_z();
   submaps_.emplace_back(new VoxbloxTSDF(options_.high_resolution(), options_.low_resolution(), origin,
                                    num_range_data_,max_truncation_distance, chunk_size));
-  chisel::ProjectionIntegrator projection_integrator;
+  /*chisel::ProjectionIntegrator projection_integrator;
   projection_integrator.SetCentroids(submaps_[size()-1]->tsdf->GetChunkManager().GetCentroids());
   projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(truncation_distance, truncation_scale)));
   projection_integrator.SetWeighter(chisel::WeighterPtr(new chisel::ConstantWeighter(1)));
   projection_integrator.SetCarvingDist(options_.projection_integrator_options().carving_distance());
   projection_integrator.SetCarvingEnabled(options_.projection_integrator_options().carving_enabled());
-  projection_integrators_.emplace_back(projection_integrator);
+  projection_integrators_.emplace_back(projection_integrator);*/
 
+
+  voxblox::TsdfIntegratorBase::Config integrator_config;
+  integrator_config.voxel_carving_enabled = true;
+  integrator_config.default_truncation_distance = 0.1;//config.tsdf_voxel_size * 2;
+
+  std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_;
+  tsdf_integrator_.reset(new voxblox::SimpleTsdfIntegrator(
+      integrator_config, submaps_[size()-1]->tsdf->getTsdfLayerPtr())); //todo(kdaun) add config to choose between integrators
+  projection_integrators_.emplace_back(tsdf_integrator_);
+
+  /*
   LOG(INFO) << "truncation_distance " << truncation_distance<<" "<< truncation_scale;
   LOG(INFO) << "carving enabled " << options_.projection_integrator_options().carving_enabled();
   LOG(INFO) << "carving distance " << options_.projection_integrator_options().carving_distance();
-  LOG(INFO) << "Added submap " << size();
-  num_range_data_in_last_submap_ = 0;*/
+  LOG(INFO) << "Added submap " << size();*/
+  num_range_data_in_last_submap_ = 0;
 }
 
 
