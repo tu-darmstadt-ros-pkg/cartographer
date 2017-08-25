@@ -21,6 +21,13 @@ import "cartographer/mapping_3d/proto/local_trajectory_builder_options.proto";
 package cartographer.mapping.proto;
 
 message MapBuilderOptions {
+  enum MapType {
+    PROBABILITY_GRID = 0;
+    CHISEL_TSDF = 1;
+    VOXBLOX_TSDF = 2;
+    VOXBLOX_ESDF = 3;
+  }
+
   optional bool use_trajectory_builder_2d = 1;
   optional bool use_trajectory_builder_3d = 2;
 
@@ -28,5 +35,5 @@ message MapBuilderOptions {
   optional int32 num_background_threads = 3;
   optional SparsePoseGraphOptions sparse_pose_graph_options = 4;
   
-  optional bool use_tsdf = 5;
+  optional MapType map_type = 5;
 }
