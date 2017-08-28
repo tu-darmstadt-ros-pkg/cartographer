@@ -29,7 +29,7 @@ namespace cartographer {
 namespace mapping_3d {
 
 //namespace {
-proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
+proto::ProjectionIntegratorOptions CreateVoxbloxProjectionIntegratorOptions(
     common::LuaParameterDictionary* parameter_dictionary){
   proto::ProjectionIntegratorOptions options;
   options.set_truncation_scale(
@@ -44,7 +44,7 @@ proto::ProjectionIntegratorOptions CreateProjectionIntegratorOptions(
 }
 
 
-proto::TSDFsOptions CreateTSDFsOptions(
+proto::TSDFsOptions CreateVoxbloxTSDFsOptions(
     common::LuaParameterDictionary* parameter_dictionary) {
   proto::TSDFsOptions options;
   options.set_high_resolution(
@@ -61,7 +61,7 @@ proto::TSDFsOptions CreateTSDFsOptions(
   options.set_chuck_size_z(
       parameter_dictionary->GetNonNegativeInt("chuck_size_z"));
   *options.mutable_projection_integrator_options() =
-      CreateProjectionIntegratorOptions(
+      CreateVoxbloxProjectionIntegratorOptions(
           parameter_dictionary->GetDictionary("projection_integrator").get());
   CHECK_GT(options.num_range_data(), 0);
   CHECK_GT(options.chuck_size_x(), 0);

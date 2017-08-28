@@ -27,6 +27,7 @@
 #include "cartographer/mapping_2d/global_trajectory_builder.h"
 #include "cartographer/mapping_3d/global_trajectory_builder.h"
 #include "cartographer/mapping_3d/global_tsdf_trajectory_builder.h"
+#include "cartographer/mapping_3d/global_voxblox_tsdf_trajectory_builder.h"
 #include "cartographer/mapping_3d/local_trajectory_builder_options.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/sensor/voxel_filter.h"
@@ -59,27 +60,37 @@ proto::MapBuilderOptions CreateMapBuilderOptions(
 }
 
 MapBuilder::MapBuilder(const proto::MapBuilderOptions& options)
-    : options_(options), thread_pool_(options.num_background_threads()) {
+  : options_(options), thread_pool_(options.num_background_threads()) {
   if (options.use_trajectory_builder_2d()) {
     sparse_pose_graph_2d_ = common::make_unique<mapping_2d::SparsePoseGraph>(
-        options_.sparse_pose_graph_options(), &thread_pool_);
+          options_.sparse_pose_graph_options(), &thread_pool_);
     sparse_pose_graph_ = sparse_pose_graph_2d_.get();
   }
   if (options.use_trajectory_builder_3d()) {
-      switch (options_.map_type()) {
-        case proto::MapBuilderOptions::PROBABILITY_GRID:
-          sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
-              options_.sparse_pose_graph_options(), &thread_pool_);
-          sparse_pose_graph_ = sparse_pose_graph_3d_.get();
-        case proto::MapBuilderOptions::CHISEL_TSDF:
-          sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphConversion>(
-              options_.sparse_pose_graph_options(), &thread_pool_);
-          sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
-        case proto::MapBuilderOptions::VOXBLOX_TSDF:
-          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_TSDF not implemented";
-        case proto::MapBuilderOptions::VOXBLOX_ESDF:
-          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
-      }
+    switch (options_.map_type()) {
+    case proto::MapBuilderOptions::PROBABILITY_GRID:
+      LOG(INFO)<<"MAP_TYPE: PROBABILITY_GRID";
+      sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
+            options_.sparse_pose_graph_options(), &thread_pool_);
+      sparse_pose_graph_ = sparse_pose_graph_3d_.get();
+      break;
+    case proto::MapBuilderOptions::CHISEL_TSDF:
+      LOG(INFO)<<"MAP_TYPE: CHISEL_TSDF";
+      sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphConversion>(
+            options_.sparse_pose_graph_options(), &thread_pool_);
+      sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
+      break;
+    case proto::MapBuilderOptions::VOXBLOX_TSDF:
+      LOG(INFO)<<"MAP_TYPE: VOXBLOX_TSDF";
+      sparse_pose_graph_voxblox_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphVoxbloxConversion>(
+            options_.sparse_pose_graph_options(), &thread_pool_);
+      sparse_pose_graph_ = sparse_pose_graph_voxblox_tsdf_3d_.get();
+      break;
+    case proto::MapBuilderOptions::VOXBLOX_ESDF:
+      LOG(INFO)<<"MAP_TYPE: VOXBLOX_ESDF";
+      LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+      break;
+    }
   }
 }
 
@@ -90,26 +101,36 @@ int MapBuilder::AddTrajectoryBuilder(
     const proto::TrajectoryBuilderOptions& trajectory_options) {
   const int trajectory_id = trajectory_builders_.size();
   if (options_.use_trajectory_builder_3d()) {
-      CHECK(trajectory_options.has_trajectory_builder_3d_options());
-      switch (options_.map_type()) {
-        case proto::MapBuilderOptions::PROBABILITY_GRID:
-          trajectory_builders_.push_back(
-              common::make_unique<CollatedTrajectoryBuilder>(
-                  &sensor_collator_, trajectory_id, expected_sensor_ids,
-                  common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
-                      trajectory_options.trajectory_builder_3d_options(),
-                      trajectory_id, sparse_pose_graph_3d_.get())));
-        case proto::MapBuilderOptions::CHISEL_TSDF:
-          common::make_unique<CollatedTrajectoryBuilder>(
+    CHECK(trajectory_options.has_trajectory_builder_3d_options());
+    switch (options_.map_type()) {
+    case proto::MapBuilderOptions::PROBABILITY_GRID:
+      trajectory_builders_.push_back(
+            common::make_unique<CollatedTrajectoryBuilder>(
+              &sensor_collator_, trajectory_id, expected_sensor_ids,
+              common::make_unique<mapping_3d::GlobalTrajectoryBuilder>(
+                trajectory_options.trajectory_builder_3d_options(),
+                trajectory_id, sparse_pose_graph_3d_.get())));
+      break;
+    case proto::MapBuilderOptions::CHISEL_TSDF:
+      trajectory_builders_.push_back(
+            common::make_unique<CollatedTrajectoryBuilder>(
               &sensor_collator_, trajectory_id, expected_sensor_ids,
               common::make_unique<mapping_3d::GlobalTSDFTrajectoryBuilder>(
-                  trajectory_options.trajectory_builder_3d_options(),
-                  trajectory_id, sparse_pose_graph_tsdf_3d_.get()));
-        case proto::MapBuilderOptions::VOXBLOX_TSDF:
-          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_TSDF not implemented";
-        case proto::MapBuilderOptions::VOXBLOX_ESDF:
-          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
-      }
+                trajectory_options.trajectory_builder_3d_options(),
+                trajectory_id, sparse_pose_graph_tsdf_3d_.get())));
+      break;
+    case proto::MapBuilderOptions::VOXBLOX_TSDF:
+      trajectory_builders_.push_back(
+            common::make_unique<CollatedTrajectoryBuilder>(
+              &sensor_collator_, trajectory_id, expected_sensor_ids,
+              common::make_unique<mapping_3d::GlobalVoxbloxTSDFTrajectoryBuilder>(
+                trajectory_options.trajectory_builder_3d_options(),
+                trajectory_id, sparse_pose_graph_voxblox_tsdf_3d_.get())));
+      break;
+    case proto::MapBuilderOptions::VOXBLOX_ESDF:
+      LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+      break;
+    }
   } else {
     CHECK(trajectory_options.has_trajectory_builder_2d_options());
     trajectory_builders_.push_back(
@@ -183,18 +204,24 @@ void MapBuilder::reset() {
     }
     if (options_.use_trajectory_builder_3d()) {
         switch (options_.map_type()) {
-          case proto::MapBuilderOptions::PROBABILITY_GRID:
-            sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
+        case proto::MapBuilderOptions::PROBABILITY_GRID:
+          sparse_pose_graph_3d_ = common::make_unique<mapping_3d::SparsePoseGraph>(
                 options_.sparse_pose_graph_options(), &thread_pool_);
-            sparse_pose_graph_ = sparse_pose_graph_3d_.get();
-          case proto::MapBuilderOptions::CHISEL_TSDF:
-            sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphConversion>(
+          sparse_pose_graph_ = sparse_pose_graph_3d_.get();
+          break;
+        case proto::MapBuilderOptions::CHISEL_TSDF:
+          sparse_pose_graph_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphConversion>(
                 options_.sparse_pose_graph_options(), &thread_pool_);
-            sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
-          case proto::MapBuilderOptions::VOXBLOX_TSDF:
-            LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_TSDF not implemented";
-          case proto::MapBuilderOptions::VOXBLOX_ESDF:
-            LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+          sparse_pose_graph_ = sparse_pose_graph_tsdf_3d_.get();
+          break;
+        case proto::MapBuilderOptions::VOXBLOX_TSDF:
+          sparse_pose_graph_voxblox_tsdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphVoxbloxConversion>(
+                options_.sparse_pose_graph_options(), &thread_pool_);
+          sparse_pose_graph_ = sparse_pose_graph_voxblox_tsdf_3d_.get();
+          break;
+        case proto::MapBuilderOptions::VOXBLOX_ESDF:
+          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+          break;
         }
     }
 }
