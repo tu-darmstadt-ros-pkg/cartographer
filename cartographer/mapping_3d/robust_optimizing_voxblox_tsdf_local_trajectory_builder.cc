@@ -22,7 +22,7 @@
 #include "cartographer/kalman_filter/pose_tracker.h"
 #include "cartographer/mapping_3d/proto/optimizing_local_trajectory_builder_options.pb.h"
 #include "cartographer/mapping_3d/rotation_cost_function.h"
-#include "cartographer/mapping_3d/scan_matching/tsdf_occupied_space_cost_functor.h"
+#include "cartographer/mapping_3d/scan_matching/voxblox_tsdf_occupied_space_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.pb.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/translation_cost_function.h"
@@ -259,54 +259,30 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
  // TransformStates(matching_submap->local_pose.inverse()); //todo(kdaun) reenable
   for (size_t i = 0; i < batches_.size(); ++i) {
     Batch& batch = batches_[i];
-    /*
+
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::OccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new scan_matching::OccupiedSpaceCostFunctor(
+            new scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor(
                 options_.optimizing_local_trajectory_builder_options()
                         .high_resolution_grid_weight() /
                     std::sqrt(static_cast<double>(
                         batch.high_resolution_filtered_points.size())),
                 batch.high_resolution_filtered_points,
-                matching_submap->high_resolution_hybrid_grid),
-            batch.high_resolution_filtered_points.size()),
-        nullptr, batch.state.translation.data(), batch.state.rotation.data());
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::OccupiedSpaceCostFunctor,
-                                        ceres::DYNAMIC, 3, 4>(
-            new scan_matching::OccupiedSpaceCostFunctor(
-                options_.optimizing_local_trajectory_builder_options()
-                        .low_resolution_grid_weight() /
-                    std::sqrt(static_cast<double>(
-                        batch.low_resolution_filtered_points.size())),
-                batch.low_resolution_filtered_points,
-                matching_submap->low_resolution_hybrid_grid),
-            batch.low_resolution_filtered_points.size()),
-        nullptr, batch.state.translation.data(), batch.state.rotation.data());*/
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
-                                        ceres::DYNAMIC, 3, 4>(
-            new scan_matching::TSDFOccupiedSpaceCostFunctor(
-                options_.optimizing_local_trajectory_builder_options()
-                        .high_resolution_grid_weight() /
-                    std::sqrt(static_cast<double>(
-                        batch.high_resolution_filtered_points.size())),
-                batch.high_resolution_filtered_points,
-                submaps_->GetChiselPtr(submaps_->matching_index()),1,
+                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()),1,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::TSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new scan_matching::TSDFOccupiedSpaceCostFunctor(
+            new scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor(
                 options_.optimizing_local_trajectory_builder_options()
                         .low_resolution_grid_weight() /
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetChiselPtr(submaps_->matching_index()),2,
+                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()),2,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
