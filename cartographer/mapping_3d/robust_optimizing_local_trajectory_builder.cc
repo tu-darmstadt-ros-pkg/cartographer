@@ -288,7 +288,7 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
       problem.SetParameterBlockConstant(batch.state.translation.data());
       problem.SetParameterBlockConstant(batch.state.rotation.data());
       problem.AddParameterBlock(batch.state.velocity.data(), 3);
-      problem.SetParameterBlockConstant(batch.state.velocity.data());  //todo(kdaun) add imu delay
+      problem.SetParameterBlockConstant(batch.state.velocity.data());
     } else {
       problem.SetParameterization(batch.state.rotation.data(),
                                   new ceres::QuaternionParameterization());

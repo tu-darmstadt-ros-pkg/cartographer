@@ -19,7 +19,6 @@
 #include "cartographer/common/make_unique.h"
 #include "cartographer/mapping_3d/kalman_tsdf_local_trajectory_builder.h"
 #include "cartographer/mapping_3d/optimizing_tsdf_local_trajectory_builder.h"
-#include "cartographer/mapping_3d/robust_optimizing_tsdf_local_trajectory_builder.h"
 #include "glog/logging.h"
 
 namespace cartographer {
@@ -38,9 +37,7 @@ std::unique_ptr<LocalTSDFTrajectoryBuilderInterface> CreateLocalTSDFTrajectoryBu
       return common::make_unique<OptimizingTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
     case proto::LocalTrajectoryBuilderOptions::ROBUST:
-    LOG(INFO) << "Initializing RobustOptimizingTSDFLocalTrajectoryBuilder";
-      return common::make_unique<RobustOptimizingTSDFLocalTrajectoryBuilder>(
-          local_trajectory_builder_options);
+      LOG(ERROR) << "RobustOptimizingTSDFLocalTrajectoryBuilder not implemented";
   }
   LOG(FATAL);
 }
