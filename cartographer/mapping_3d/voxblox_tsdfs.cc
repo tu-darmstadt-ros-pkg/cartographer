@@ -83,7 +83,7 @@ VoxbloxTSDF::VoxbloxTSDF(const float high_resolution, const float low_resolution
 
 
     voxblox::TsdfMap::Config config;
-    //config.tsdf_voxel_size = static_cast<FloatingPoint>(voxel_size); //todo(kdaun) set params from config
+    config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(0.15); //todo(kdaun) set params from config
     //config.tsdf_voxels_per_side = voxels_per_side;
     tsdf.reset(new voxblox::TsdfMap(config));
 }
@@ -149,19 +149,16 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
 
     for (const Eigen::Vector3f& pt : range_data_in_tracking.returns)
     {
-        points_C.push_back(voxblox::Point(pt(0),
-                                 pt(1),
-                                 pt(2)));
+        points_C.push_back(voxblox::Point(pt(0) - sensor_origin.x(),
+                                 pt(1) - sensor_origin.y(),
+                                 pt(2) - sensor_origin.z()));
         colors.push_back(
             voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
     }
 
-    LOG(INFO)<<"position before"<<T_G_C.getPosition();
     T_G_C.getPosition()[0]= sensor_origin.x();
-    T_G_C.getPosition()[0]= sensor_origin.y();
-    T_G_C.getPosition()[0]= sensor_origin.z();
-    LOG(INFO)<<"position after"<<T_G_C.getPosition();
-
+    T_G_C.getPosition()[1]= sensor_origin.y();
+    T_G_C.getPosition()[2]= sensor_origin.z();
 
     for(int insertion_index : insertion_indices())
     {
@@ -343,7 +340,8 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
 
   voxblox::TsdfIntegratorBase::Config integrator_config;
   integrator_config.voxel_carving_enabled = true;
-  integrator_config.default_truncation_distance = 0.1;//config.tsdf_voxel_size * 2;
+  integrator_config.default_truncation_distance = 0.15;//config.tsdf_voxel_size * 2;
+  integrator_config.max_ray_length_m = 30.0;
 
   std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_;
   tsdf_integrator_.reset(new voxblox::SimpleTsdfIntegrator(

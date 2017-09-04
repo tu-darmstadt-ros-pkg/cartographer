@@ -111,7 +111,7 @@ public:
 
     const double q111 = getVoxelSDF(x1, y1, z1);
     const double q112 = getVoxelSDF(x1, y1, z2);
-    const double q121 = getVoxelSDF(x1, y2, z2);
+    const double q121 = getVoxelSDF(x1, y2, z1);
     const double q122 = getVoxelSDF(x1, y2, z2);
     const double q211 = getVoxelSDF(x2, y1, z1);
     const double q212 = getVoxelSDF(x2, y1, z2);
@@ -208,7 +208,7 @@ private:
       if(q > max_truncation_distance_)
       {
         LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
-        LOG(WARNING)<<"weight: "<< voxel.weight;
+        LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
         q = max_truncation_distance_;
       }
     }

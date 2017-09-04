@@ -346,8 +346,6 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
           batches_[i].state.rotation.data());
     }
 
-
-
   }
 
   if (odometer_data_.size() > 1) {
@@ -383,6 +381,21 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
           batches_[i].state.rotation.data());
     }
   }
+/*
+  for (size_t i = 0; i < batches_.size(); ++i) {
+    Batch& batch = batches_[i];
+
+    if (i == 0) {
+      problem.SetParameterBlockConstant(batch.state.translation.data());
+      problem.SetParameterBlockConstant(batch.state.rotation.data());
+      problem.AddParameterBlock(batch.state.velocity.data(), 3);
+      problem.SetParameterBlockConstant(batch.state.velocity.data()); //todo(kdaun) add imu delay
+    } else {
+      problem.SetParameterization(batch.state.rotation.data(),
+                                  new ceres::QuaternionParameterization());
+    }
+  }*/
+
 
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_solver_options_, &problem, &summary);
