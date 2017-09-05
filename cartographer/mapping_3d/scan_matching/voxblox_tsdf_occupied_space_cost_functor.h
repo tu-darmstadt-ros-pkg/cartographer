@@ -17,8 +17,6 @@
 #ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
 #define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
 
-#include <open_chisel/Chisel.h>
-
 #include "Eigen/Core"
 #include "cartographer/mapping_3d/hybrid_grid.h"
 #include "cartographer/mapping_3d/scan_matching/interpolated_voxblox_tsdf.h"

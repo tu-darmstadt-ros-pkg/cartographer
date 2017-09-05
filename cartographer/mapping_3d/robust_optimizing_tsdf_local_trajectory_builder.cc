@@ -508,7 +508,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
       sensor::TransformRangeData(range_data_in_tracking,
                                  pose_observation.cast<float>()),
       kFakeGravityOrientation,
-      pose_observation.cast<float>()*sensor_origin);
+      sensor_origin);
 
   const kalman_filter::PoseCovariance kCovariance =
       1e-7 * kalman_filter::PoseCovariance::Identity();

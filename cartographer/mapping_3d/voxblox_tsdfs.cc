@@ -135,7 +135,7 @@ std::vector<int> VoxbloxTSDFs::insertion_indices() const {
 }
 void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
                             const Eigen::Quaterniond& gravity_alignment,
-                            const Eigen::Vector3f& sensor_origin)
+                            const transform::Rigid3f &world_to_sensor)
 {
     CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
@@ -149,17 +149,18 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
 
     for (const Eigen::Vector3f& pt : range_data_in_tracking.returns)
     {
-        points_C.push_back(voxblox::Point(pt(0) - sensor_origin.x(),
-                                 pt(1) - sensor_origin.y(),
-                                 pt(2) - sensor_origin.z()));
+        points_C.push_back(voxblox::Point(pt(0),
+                                 pt(1),
+                                 pt(2)));
         colors.push_back(
             voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
     }
 
-    T_G_C.getPosition()[0]= sensor_origin.x();
-    T_G_C.getPosition()[1]= sensor_origin.y();
-    T_G_C.getPosition()[2]= sensor_origin.z();
-
+    T_G_C.getPosition() = world_to_sensor.translation();
+    T_G_C.getRotation().setValues(world_to_sensor.rotation().w(),
+                                  world_to_sensor.rotation().x(),
+                                  world_to_sensor.rotation().y(),
+                                  world_to_sensor.rotation().z());
     for(int insertion_index : insertion_indices())
     {
         //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
@@ -318,6 +319,7 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
     CHECK(!submap->finished);
     submap->finished = true;
   }
+  LOG(INFO)<<"TSDF origin: "<<origin;
   double resolution = options_.high_resolution();
   double truncation_distance = options_.projection_integrator_options().truncation_distance();
   double truncation_scale = options_.projection_integrator_options().truncation_scale();

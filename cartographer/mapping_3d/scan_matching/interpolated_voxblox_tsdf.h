@@ -64,50 +64,6 @@ public:
     T z_local = z;// - T(origin.z());
 
     ComputeInterpolationDataPoints(x_local, y_local, z_local, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
-    /*
-    if (!interpolator_->getNearestDistanceAndWeight(point, &distance,
-                                                    &weight)) {
-      unknown_voxels++;
-    } else if (weight <= min_weight) {
-      unknown_voxels++;
-    } else if (distance >= truncation_distance) {
-      outside_truncation_voxels++;
-      mse += truncation_distance * truncation_distance;
-      valid = true;
-    } else {
-      // In case this fails, distance is still the nearest neighbor distance.
-      interpolator_->getDistance(point, &distance, interpolate);
-      mse += distance * distance;
-      valid = true;
-    }
-
-    if (valid && visualize_ && recolor_by_error_) {
-      Layer<TsdfVoxel>::BlockType::Ptr block_ptr =
-          tsdf_layer_->getBlockPtrByCoordinates(point);
-      if (block_ptr != nullptr) {
-        TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(point);
-        voxel.color = grayColorMap(std::fabs(distance) / truncation_distance);
-      }
-    }*/
-
-    /*const chisel::DistVoxel* v111 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z1));
-    const chisel::DistVoxel* v112 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z2));
-    const chisel::DistVoxel* v121 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y2,z1));
-    const chisel::DistVoxel* v122 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y2,z2));
-    const chisel::DistVoxel* v211 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y1,z1));
-    const chisel::DistVoxel* v212 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y1,z2));
-    const chisel::DistVoxel* v221 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z1));
-    const chisel::DistVoxel* v222 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z2));
-
-    const double q111 = getVoxelSDF(v111);
-    const double q112 = getVoxelSDF(v112);
-    const double q121 = getVoxelSDF(v121);
-    const double q122 = getVoxelSDF(v122);
-    const double q211 = getVoxelSDF(v211);
-    const double q212 = getVoxelSDF(v212);
-    const double q221 = getVoxelSDF(v221);
-    const double q222 = getVoxelSDF(v222);
-    */
 
     const double q111 = getVoxelSDF(x1, y1, z1);
     const double q112 = getVoxelSDF(x1, y1, z2);
@@ -197,19 +153,19 @@ private:
 
   double getVoxelSDF(double x, double y, double z) const
   {
-    double q = max_truncation_distance_;
+    double q = 10.*max_truncation_distance_;
     voxblox::Point point(x, y, z);
     voxblox::Layer<voxblox::TsdfVoxel>::BlockType::ConstPtr block_ptr =
         tsdf_->getTsdfLayer().getBlockPtrByCoordinates(point);
     if (block_ptr != nullptr) {
       const voxblox::TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(point);
-      if (voxel.weight > 0.0) //todo(kdaun) replace by isValid function
+      if (voxel.weight > 0.0)
         q = (double)voxel.distance;
       if(q > max_truncation_distance_)
       {
-        LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
-        LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
-        q = max_truncation_distance_;
+        //LOG(WARNING)<<"q >>> max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
+        //LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
+        q = 10.*max_truncation_distance_;
       }
     }
     return q;

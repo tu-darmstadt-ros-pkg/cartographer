@@ -112,7 +112,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::RobustOptimizingVoxbloxTSDFLo
       num_accumulated_(0),
       num_update_scans_(0),
       motion_filter_(options.motion_filter_options()) {
-    LOG(INFO)<<"Initialized RobustOptimizingLocalTrajectoryBuilder";
+  LOG(INFO)<<"Initialized RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder";
 }
 
 RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::~RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder() {}
@@ -147,8 +147,8 @@ void RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddOdometerData(
 
 std::unique_ptr<RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::InsertionResult>
 RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddRangefinderData(
-    const common::Time time, const Eigen::Vector3f& origin,
-    const sensor::PointCloud& ranges) {
+    const common::Time time, const Eigen::Vector3f& origin /*relative to tracking_frame*/,
+    const sensor::PointCloud& ranges /*tracking_frame*/) {
   CHECK_GT(ranges.size(), 0);
 
   // TODO(hrapp): Handle misses.
@@ -269,7 +269,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                     std::sqrt(static_cast<double>(
                         batch.high_resolution_filtered_points.size())),
                 batch.high_resolution_filtered_points,
-                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()),1,
+                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
@@ -282,7 +282,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()),2,
+                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 2.0,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
@@ -421,11 +421,14 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 
+  transform::Rigid3d tracking_to_sensor = transform::Rigid3d::Identity();
+  tracking_to_sensor.Translation(origin.cast<double>());
+
   int i_batch = 0;
   //LOG(INFO)<<"imu_delay: "<<std::to_string(batches_.front().delay_imu);
   for (const auto& batch : batches_) {
     const transform::Rigid3f transform =
-        (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
+        (optimized_pose.inverse() * batch.state.ToRigid() * tracking_to_sensor).cast<float>();
     for (const Eigen::Vector3f& point : batch.points) {
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
@@ -439,18 +442,20 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   const transform::Rigid3f transform_median =
       ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
+  const transform::Rigid3f world_to_sensor = transform_median * tracking_to_sensor.cast<float>();
 
   return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu),
-                                 optimized_pose,
-                                 accumulated_range_data_in_tracking,
-                                 sensor_origin);
+      optimized_pose,
+      accumulated_range_data_in_tracking,
+      sensor_origin,
+      world_to_sensor);
 }
 
 std::unique_ptr<RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::InsertionResult>
 RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
     const common::Time time, const transform::Rigid3d& optimized_pose,
     const sensor::RangeData& range_data_in_tracking,
-    const Eigen::Vector3f& sensor_origin) {
+    const Eigen::Vector3f& sensor_origin, const transform::Rigid3f& world_to_sensor) {
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
@@ -468,8 +473,11 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   optimized_pose.cast<float>())};
 
-  return InsertIntoSubmap(time, filtered_range_data, optimized_pose,
-                          sensor_origin);
+  return InsertIntoSubmap(time,
+                          filtered_range_data,
+                          optimized_pose,
+                          sensor_origin,
+                          world_to_sensor);
 }
 
 const RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::PoseEstimate&
@@ -480,7 +488,8 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::pose_estimate() const {
 std::unique_ptr<RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::InsertionResult>
 RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     const common::Time time, const sensor::RangeData& range_data_in_tracking,
-    const transform::Rigid3d& pose_observation, const Eigen::Vector3f& sensor_origin) {
+    const transform::Rigid3d& pose_observation, const Eigen::Vector3f& sensor_origin,
+    const transform::Rigid3f& world_to_sensor) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
   }
@@ -494,10 +503,10 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   const Eigen::Quaterniond kFakeGravityOrientation =
       Eigen::Quaterniond::Identity();
   submaps_->InsertRangeData(
-      sensor::TransformRangeData(range_data_in_tracking,
-                                 pose_observation.cast<float>()),
-      kFakeGravityOrientation,
-      pose_observation.cast<float>()*sensor_origin);
+        sensor::TransformRangeData(range_data_in_tracking,
+                                   world_to_sensor.inverse() * pose_observation.cast<float>()),
+        kFakeGravityOrientation,
+        world_to_sensor);
 
   const kalman_filter::PoseCovariance kCovariance =
       1e-7 * kalman_filter::PoseCovariance::Identity();

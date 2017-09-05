@@ -81,7 +81,7 @@ class VoxbloxTSDFs : public mapping::Submaps {
   //Inserts 'range_data' into the Submap collection.
   void InsertRangeData(const sensor::RangeData& range_data_in_tracking,
                        const Eigen::Quaterniond &gravity_alignment,
-                       const Eigen::Vector3f& sensor_origin);
+                       const transform::Rigid3f& world_to_sensor);
 
 
 
