@@ -421,14 +421,13 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   sensor::RangeData accumulated_range_data_in_tracking = {
       Eigen::Vector3f::Zero(), {}, {}};
 
-  transform::Rigid3d tracking_to_sensor = transform::Rigid3d::Identity();
-  tracking_to_sensor.Translation(origin.cast<double>());
+  transform::Rigid3d tracking_to_sensor = transform::Rigid3d::Translation(origin.cast<double>());
 
   int i_batch = 0;
   //LOG(INFO)<<"imu_delay: "<<std::to_string(batches_.front().delay_imu);
   for (const auto& batch : batches_) {
     const transform::Rigid3f transform =
-        (optimized_pose.inverse() * batch.state.ToRigid() * tracking_to_sensor).cast<float>();
+        (optimized_pose.inverse() * batch.state.ToRigid()).cast<float>();
     for (const Eigen::Vector3f& point : batch.points) {
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
