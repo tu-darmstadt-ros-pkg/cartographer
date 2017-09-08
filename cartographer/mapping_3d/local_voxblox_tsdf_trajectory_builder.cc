@@ -18,6 +18,7 @@
 
 #include "cartographer/common/make_unique.h"
 #include "cartographer/mapping_3d/robust_optimizing_voxblox_tsdf_local_trajectory_builder.h"
+#include "cartographer/mapping_3d/kalman_voxblox_tsdf_local_trajectory_builder.h"
 #include "glog/logging.h"
 
 namespace cartographer {
@@ -25,15 +26,17 @@ namespace mapping_3d {
 
 std::unique_ptr<LocalVoxbloxTSDFTrajectoryBuilderInterface> CreateLocalVoxbloxTSDFTrajectoryBuilder(
     const proto::LocalTrajectoryBuilderOptions&
-        local_trajectory_builder_options) {
+    local_trajectory_builder_options) {
   switch (local_trajectory_builder_options.use()) {
-    case proto::LocalTrajectoryBuilderOptions::KALMAN:
-      LOG(FATAL) << "KalmanVoxbloxTSDFLocalTrajectoryBuilder not implemented";
-    case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
-      LOG(FATAL) << "Initializing OptimizingVoxbloxTSDFLocalTrajectoryBuilder not implemented";
-    case proto::LocalTrajectoryBuilderOptions::ROBUST:
+  case proto::LocalTrajectoryBuilderOptions::KALMAN:
+    LOG(INFO) << "Initializing KalmanVoxbloxTSDFLocalTrajectoryBuilder";
+    return common::make_unique<KalmanVoxbloxTSDFLocalTrajectoryBuilder>(
+          local_trajectory_builder_options);
+  case proto::LocalTrajectoryBuilderOptions::OPTIMIZING:
+    LOG(FATAL) << "Initializing OptimizingVoxbloxTSDFLocalTrajectoryBuilder not implemented";
+  case proto::LocalTrajectoryBuilderOptions::ROBUST:
     LOG(INFO) << "Initializing RobustOptimizingTSDFLocalTrajectoryBuilder";
-      return common::make_unique<RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder>(
+    return common::make_unique<RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder>(
           local_trajectory_builder_options);
   }
   LOG(FATAL);

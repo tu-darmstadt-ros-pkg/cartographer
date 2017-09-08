@@ -83,7 +83,7 @@ VoxbloxTSDF::VoxbloxTSDF(const float high_resolution, const float low_resolution
 
 
     voxblox::TsdfMap::Config config;
-    config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(0.15); //todo(kdaun) set params from config
+    config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(high_resolution);
     //config.tsdf_voxels_per_side = voxels_per_side;
     tsdf.reset(new voxblox::TsdfMap(config));
 }
@@ -139,9 +139,7 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
 {
     CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
-
     voxblox::Transformation T_G_C;
-    T_G_C.setIdentity();
     voxblox::Pointcloud points_C;
     voxblox::Colors colors;
     points_C.reserve(range_data_in_tracking.returns.size());
@@ -161,6 +159,8 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
                                   world_to_sensor.rotation().x(),
                                   world_to_sensor.rotation().y(),
                                   world_to_sensor.rotation().z());
+
+    //LOG(INFO)<<"T_G_C: "<<T_G_C;
     for(int insertion_index : insertion_indices())
     {
         //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
@@ -280,7 +280,7 @@ std::vector<VoxbloxTSDFs::PixelData> VoxbloxTSDFs::AccumulatePixelData(
 
 void VoxbloxTSDFs::SubmapToProto(
     int index, const transform::Rigid3d& global_submap_pose,
-    mapping::proto::SubmapQuery::Response* const response) const {    
+    mapping::proto::SubmapQuery::Response* const response) const {
     LOG(WARNING)<<"SubmapToProto is not implemented";
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
@@ -320,17 +320,18 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
     submap->finished = true;
   }
   LOG(INFO)<<"TSDF origin: "<<origin;
-  double resolution = options_.high_resolution();
-  double truncation_distance = options_.projection_integrator_options().truncation_distance();
-  double truncation_scale = options_.projection_integrator_options().truncation_scale();
-  float max_truncation_distance = std::ceil(2.0 + (truncation_scale * truncation_distance /
-                                            resolution)) * resolution;
+  LOG(INFO)<<"Truncation distance: "<<options_.projection_integrator_options().truncation_distance();
+//  double resolution = options_.high_resolution();
+//  double truncation_distance = options_.projection_integrator_options().truncation_distance();
+ // double truncation_scale = options_.projection_integrator_options().truncation_scale();
+ // float max_truncation_distance = 0.15;//std::ceil(2.0 + (truncation_scale * truncation_distance /
+                                         //   resolution)) * resolution;
   Eigen::Vector3i chunk_size;
   chunk_size.x() = options_.chuck_size_x();
   chunk_size.y() = options_.chuck_size_y();
   chunk_size.z() = options_.chuck_size_z();
   submaps_.emplace_back(new VoxbloxTSDF(options_.high_resolution(), options_.low_resolution(), origin,
-                                   num_range_data_,max_truncation_distance, chunk_size));
+                                   num_range_data_,options_.projection_integrator_options().truncation_distance(), chunk_size));
   /*chisel::ProjectionIntegrator projection_integrator;
   projection_integrator.SetCentroids(submaps_[size()-1]->tsdf->GetChunkManager().GetCentroids());
   projection_integrator.SetTruncator(chisel::TruncatorPtr(new chisel::ConstantTruncator(truncation_distance, truncation_scale)));
@@ -342,7 +343,7 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
 
   voxblox::TsdfIntegratorBase::Config integrator_config;
   integrator_config.voxel_carving_enabled = true;
-  integrator_config.default_truncation_distance = 0.15;//config.tsdf_voxel_size * 2;
+  integrator_config.default_truncation_distance = options_.projection_integrator_options().truncation_distance();//config.tsdf_voxel_size * 2;
   integrator_config.max_ray_length_m = 30.0;
 
   std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_;
