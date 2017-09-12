@@ -136,9 +136,10 @@ private:
     const float coarsed_resolution = tsdf_->getTsdfLayer().voxel_size()*coarsening_factor;
     //LOG(INFO)<<"resolution "<< tsdf_->getTsdfLayer().voxel_size();
     const float round = 1/coarsed_resolution;
-    float x_0 = static_cast<float>(std::floor(x * round))/round;
-    float y_0 = static_cast<float>(std::floor(y * round))/round;
-    float z_0 = static_cast<float>(std::floor(z * round))/round;
+    const float offset = 0.5 * coarsed_resolution;
+    float x_0 = static_cast<float>((std::floor(x * round + 0.5)/round) - offset);
+    float y_0 = static_cast<float>((std::floor(y * round + 0.5)/round) - offset);
+    float z_0 = static_cast<float>((std::floor(z * round + 0.5)/round) - offset);
     Eigen::Vector3f center(x_0, y_0, z_0);
     return center;
   }
@@ -153,7 +154,7 @@ private:
 
   double getVoxelSDF(double x, double y, double z) const
   {
-    double q = 10.*max_truncation_distance_;
+    double q = max_truncation_distance_;
     voxblox::Point point(x, y, z);
     voxblox::Layer<voxblox::TsdfVoxel>::BlockType::ConstPtr block_ptr =
         tsdf_->getTsdfLayer().getBlockPtrByCoordinates(point);
@@ -165,7 +166,7 @@ private:
       {
         //LOG(WARNING)<<"q >>> max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
         //LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
-        q = 10.*max_truncation_distance_;
+        q = max_truncation_distance_;
       }
     }
     return q;
