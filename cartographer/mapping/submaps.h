@@ -31,6 +31,7 @@
 #include "glog/logging.h"
 #include <open_chisel/Chisel.h>
 #include <open_chisel/DistVoxel.h>
+#include <voxblox/core/esdf_map.h>
 #include <voxblox/core/tsdf_map.h>
 
 namespace cartographer {
@@ -109,6 +110,7 @@ class Submaps {
   virtual const Submap* Get(int index) const = 0;
   virtual const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const = 0;
   virtual const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index) const = 0;
+  virtual const std::shared_ptr<voxblox::EsdfMap> GetVoxbloxESDFPtr(int index) const = 0;
 
   // Returns the number of Submaps.
   virtual int size() const = 0;

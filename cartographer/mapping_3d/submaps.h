@@ -69,6 +69,8 @@ class Submaps : public mapping::Submaps {
       LOG(FATAL) << "Not implemented."; }
   const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
+  const std::shared_ptr<voxblox::EsdfMap> GetVoxbloxESDFPtr(int index) const override{
+      LOG(FATAL) << "Not implemented."; }
 
   int size() const override;
   void SubmapToProto(

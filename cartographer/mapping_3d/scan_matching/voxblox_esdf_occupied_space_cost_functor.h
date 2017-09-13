@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
-#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_ESDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_ESDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
 
 #include "Eigen/Core"
 #include "cartographer/mapping_3d/hybrid_grid.h"
-#include "cartographer/mapping_3d/scan_matching/interpolated_voxblox_tsdf.h"
+#include "cartographer/mapping_3d/scan_matching/interpolated_voxblox_esdf.h"
 #include "cartographer/sensor/point_cloud.h"
 #include "cartographer/transform/rigid_transform.h"
 #include "cartographer/transform/transform.h"
@@ -31,21 +31,21 @@ namespace scan_matching {
 // Computes the cost of inserting occupied space described by the point cloud
 // into the map. The cost increases with the amount of free space that would be
 // replaced by occupied space.
-class VoxbloxTSDFOccupiedSpaceCostFunctor {
+class VoxbloxESDFOccupiedSpaceCostFunctor {
  public:
   // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
   // add to all poses, and point cloud.
-  VoxbloxTSDFOccupiedSpaceCostFunctor(const double scaling_factor,
+  VoxbloxESDFOccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
-                           std::shared_ptr<voxblox::TsdfMap> tsdf,
+                           std::shared_ptr<voxblox::EsdfMap> tsdf,
                            int coarsening_factor, float max_truncation_distance)
       : scaling_factor_(scaling_factor),
         coarsening_factor_(coarsening_factor),
         point_cloud_(point_cloud),
         interpolated_grid_(tsdf, max_truncation_distance) {}
 
-  VoxbloxTSDFOccupiedSpaceCostFunctor(const VoxbloxTSDFOccupiedSpaceCostFunctor&) = delete;
-  VoxbloxTSDFOccupiedSpaceCostFunctor& operator=(const VoxbloxTSDFOccupiedSpaceCostFunctor&) = delete;
+  VoxbloxESDFOccupiedSpaceCostFunctor(const VoxbloxESDFOccupiedSpaceCostFunctor&) = delete;
+  VoxbloxESDFOccupiedSpaceCostFunctor& operator=(const VoxbloxESDFOccupiedSpaceCostFunctor&) = delete;
 
   template <typename T>
   bool operator()(const T* const translation, const T* const rotation,
@@ -74,11 +74,11 @@ class VoxbloxTSDFOccupiedSpaceCostFunctor {
   const double scaling_factor_;
   const int coarsening_factor_;
   const sensor::PointCloud& point_cloud_;
-  const InterpolatedVoxbloxTSDF interpolated_grid_;
+  const InterpolatedVoxbloxESDF interpolated_grid_;
 };
 
 }  // namespace scan_matching
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_TSDF_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_VOXBLOX_ESDF_OCCUPIED_SPACE_COST_FUNCTOR_H_

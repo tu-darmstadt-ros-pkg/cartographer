@@ -180,7 +180,7 @@ class ConstraintBuilderVoxbloxESDFConversion {
 
   common::FixedRatioSampler sampler_;
   const sensor::AdaptiveVoxelFilter adaptive_voxel_filter_;
-  scan_matching::CeresVoxbloxTSDFScanMatcher ceres_scan_matcher_;
+  scan_matching::CeresVoxbloxESDFScanMatcher ceres_scan_matcher_;
 
   // Histogram of scan matcher scores.
   common::Histogram score_histogram_ GUARDED_BY(mutex_);

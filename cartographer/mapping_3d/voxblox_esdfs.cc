@@ -98,7 +98,7 @@ VoxbloxESDFs::VoxbloxESDFs()
 {
   // We always want to have at least one tsdf which we can return,
   // and will create it at the origin in absence of a better choice.
-  AddTSDF(transform::Rigid3d::Identity());
+  AddESDF(transform::Rigid3d::Identity());
 }
 
 
@@ -106,7 +106,7 @@ VoxbloxESDFs::VoxbloxESDFs(const proto::TSDFsOptions& options)
     : options_(options) {
   // We always want to have at least one tsdf which we can return,
   // and will create it at the origin in absence of a better choice.
-  AddTSDF(transform::Rigid3d::Identity());
+  AddESDF(transform::Rigid3d::Identity());
 }
 
 const VoxbloxESDF* VoxbloxESDFs::Get(int index) const {
@@ -119,6 +119,12 @@ const std::shared_ptr<voxblox::TsdfMap> VoxbloxESDFs::GetVoxbloxTSDFPtr(int inde
     CHECK_GE(index, 0);
     CHECK_LT(index, size());
     return submaps_[index]->tsdf;
+}
+
+const std::shared_ptr<voxblox::EsdfMap> VoxbloxESDFs::GetVoxbloxESDFPtr(int index) const {
+    CHECK_GE(index, 0);
+    CHECK_LT(index, size());
+    return submaps_[index]->esdf;
 }
 
 int VoxbloxESDFs::size() const { return submaps_.size(); }
@@ -186,7 +192,7 @@ void VoxbloxESDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
 
     ++num_range_data_in_last_submap_;
     if (num_range_data_in_last_submap_ == options_.num_range_data()) {
-      AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
+      AddESDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
                                  gravity_alignment));
     }
 }
@@ -320,7 +326,7 @@ void VoxbloxESDFs::SubmapToProto(
 }
 
 
-void VoxbloxESDFs::AddTSDF(const transform::Rigid3d& origin) {
+void VoxbloxESDFs::AddESDF(const transform::Rigid3d& origin) {
   if (size() > 1) {
     VoxbloxESDF* submap = submaps_[size() - 2].get();
     CHECK(!submap->finished);

@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include <voxblox/core/common.h>
-#include <voxblox/core/tsdf_map.h>
+#include <voxblox/core/esdf_map.h>
 
 namespace cartographer {
 namespace mapping_3d {
@@ -36,14 +36,14 @@ namespace scan_matching {
 
 
 
-class InterpolatedVoxbloxTSDF {
+class InterpolatedVoxbloxESDF {
 public:
-  explicit InterpolatedVoxbloxTSDF(const std::shared_ptr<voxblox::TsdfMap>  tsdf,
+  explicit InterpolatedVoxbloxESDF(const std::shared_ptr<voxblox::EsdfMap>  tsdf,
                                    float max_truncation_distance)
     : tsdf_(tsdf), max_truncation_distance_(max_truncation_distance) {}
 
-  InterpolatedVoxbloxTSDF(const InterpolatedVoxbloxTSDF&) = delete;
-  InterpolatedVoxbloxTSDF& operator=(const InterpolatedVoxbloxTSDF&) = delete;
+  InterpolatedVoxbloxESDF(const InterpolatedVoxbloxESDF&) = delete;
+  InterpolatedVoxbloxESDF& operator=(const InterpolatedVoxbloxESDF&) = delete;
 
   // Returns the interpolated probability at (x, y, z) of the HybridGrid
   // used to perform the interpolation.
@@ -186,7 +186,7 @@ public:
         q1;
   }
 
-  const std::shared_ptr<voxblox::TsdfMap> getTSDF() const {
+  const std::shared_ptr<voxblox::EsdfMap> getTSDF() const {
     return tsdf_;
   }
 
@@ -198,7 +198,7 @@ private:
                                       double* z2, int coarsening_factor) const {
     const Eigen::Vector3f lower = CenterOfLowerVoxel(x, y, z, coarsening_factor);
     //const auto& chunk_manager = tsdf_->GetChunkManager();
-    const float resolution = tsdf_->getTsdfLayer().voxel_size(); //todo(kdaun) handle different resolutions for diffrent directions
+    const float resolution = tsdf_->getEsdfLayer().voxel_size(); //todo(kdaun) handle different resolutions for diffrent directions
     //LOG(INFO)<<"resolution "<<resolution;
     *x1 = lower.x();
     *y1 = lower.y();
@@ -213,7 +213,7 @@ private:
   // corresponding center is at most the given coordinate.
   Eigen::Vector3f CenterOfLowerVoxel(const double x, const double y,
                                      const double z, int coarsening_factor) const {
-    const float coarsed_resolution = tsdf_->getTsdfLayer().voxel_size()*coarsening_factor;
+    const float coarsed_resolution = tsdf_->getEsdfLayer().voxel_size()*coarsening_factor;
     //LOG(INFO)<<"resolution "<< tsdf_->getTsdfLayer().voxel_size();
     const float round = 1/coarsed_resolution;
     const float offset = 0.5 * coarsed_resolution;
@@ -237,27 +237,20 @@ private:
     sdf = NAN;
     bool valid = false;
     voxblox::Point point(x, y, z);
-    voxblox::Layer<voxblox::TsdfVoxel>::BlockType::ConstPtr block_ptr =
-        tsdf_->getTsdfLayer().getBlockPtrByCoordinates(point);
+    voxblox::Layer<voxblox::EsdfVoxel>::BlockType::ConstPtr block_ptr =
+        tsdf_->getEsdfLayer().getBlockPtrByCoordinates(point);
     if (block_ptr != nullptr) {
-      const voxblox::TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(point);
-      if (voxel.weight > 0.0)
+      const voxblox::EsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(point);
+      if (voxel.observed == true) //todo(kdaun) do we even care about observed?
       {
         sdf = (double)voxel.distance;
         valid = true;
-      }
-      if(std::abs(sdf) > max_truncation_distance_ )
-      {
-        //LOG(WARNING)<<"q >>> max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
-        //LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
-        sdf = NAN;
-        valid = false;
       }
     }
     return valid;
   }
 
-  const std::shared_ptr<voxblox::TsdfMap> tsdf_;
+  const std::shared_ptr<voxblox::EsdfMap> tsdf_;
   float max_truncation_distance_;
 };
 

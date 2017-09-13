@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_TSDF_SCAN_MATCHER_H_
-#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_TSDF_SCAN_MATCHER_H_
+#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_ESDF_SCAN_MATCHER_H_
+#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_ESDF_SCAN_MATCHER_H_
 
 #include <utility>
 #include <vector>
 
 #include <voxblox/core/common.h>
+#include <voxblox/core/esdf_map.h>
 #include <voxblox/core/tsdf_map.h>
 
 #include "Eigen/Core"
@@ -34,26 +35,26 @@ namespace cartographer {
 namespace mapping_3d {
 namespace scan_matching {
 
-proto::CeresScanMatcherOptions CreateCeresVoxbloxTSDFScanMatcherOptions(
+proto::CeresScanMatcherOptions CreateCeresVoxbloxESDFScanMatcherOptions(
     common::LuaParameterDictionary* parameter_dictionary);
 
-using PointCloudAndVoxbloxTSDFPointers =
-    std::pair<const sensor::PointCloud*, const std::shared_ptr<voxblox::TsdfMap>>;
+using PointCloudAndVoxbloxESDFPointers =
+    std::pair<const sensor::PointCloud*, const std::shared_ptr<voxblox::EsdfMap>>;
 
 // This scan matcher uses Ceres to align scans with an existing map.
-class CeresVoxbloxTSDFScanMatcher {
+class CeresVoxbloxESDFScanMatcher {
  public:
-  explicit CeresVoxbloxTSDFScanMatcher(const proto::CeresScanMatcherOptions& options);
+  explicit CeresVoxbloxESDFScanMatcher(const proto::CeresScanMatcherOptions& options);
 
-  CeresVoxbloxTSDFScanMatcher(const CeresVoxbloxTSDFScanMatcher&) = delete;
-  CeresVoxbloxTSDFScanMatcher& operator=(const CeresVoxbloxTSDFScanMatcher&) = delete;
+  CeresVoxbloxESDFScanMatcher(const CeresVoxbloxESDFScanMatcher&) = delete;
+  CeresVoxbloxESDFScanMatcher& operator=(const CeresVoxbloxESDFScanMatcher&) = delete;
 
   // Aligns 'point_clouds' within the 'hybrid_grids' given an
   // 'initial_pose_estimate' and returns 'pose_estimate', and
   // the solver 'summary'.
   void Match(const transform::Rigid3d& previous_pose,
              const transform::Rigid3d& initial_pose_estimate,
-             const std::vector<PointCloudAndVoxbloxTSDFPointers>&
+             const std::vector<PointCloudAndVoxbloxESDFPointers>&
                  point_clouds_and_tsdfs,
              float max_truncation_distance,
              int coarsening_factor,
@@ -65,7 +66,7 @@ class CeresVoxbloxTSDFScanMatcher {
   // the solver 'summary'.
   void MatchCombined(const transform::Rigid3d& previous_pose,
              const transform::Rigid3d& initial_pose_estimate,
-             const std::vector<PointCloudAndVoxbloxTSDFPointers>&
+             const std::vector<PointCloudAndVoxbloxESDFPointers>&
                  point_clouds_and_tsdfs,
              float max_truncation_distance,
              transform::Rigid3d* pose_estimate,
@@ -80,4 +81,4 @@ class CeresVoxbloxTSDFScanMatcher {
 }  // namespace mapping_3d
 }  // namespace cartographer
 
-#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_TSDF_SCAN_MATCHER_H_
+#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_CERES_VOXBLOX_ESDF_SCAN_MATCHER_H_

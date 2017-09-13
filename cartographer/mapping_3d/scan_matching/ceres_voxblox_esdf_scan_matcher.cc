@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "cartographer/mapping_3d/scan_matching/ceres_voxblox_tsdf_scan_matcher.h"
+#include "cartographer/mapping_3d/scan_matching/ceres_voxblox_esdf_scan_matcher.h"
 
 #include <string>
 #include <utility>
@@ -24,7 +24,7 @@
 #include "cartographer/common/make_unique.h"
 #include "cartographer/mapping_3d/ceres_pose.h"
 #include "cartographer/mapping_3d/scan_matching/occupied_space_cost_functor.h"
-#include "cartographer/mapping_3d/scan_matching/voxblox_tsdf_occupied_space_cost_functor.h"
+#include "cartographer/mapping_3d/scan_matching/voxblox_esdf_occupied_space_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/rotation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
@@ -54,7 +54,7 @@ struct YawOnlyQuaternionPlus {
 
 }  // namespace
 
-proto::CeresScanMatcherOptions CreateCeresVoxbloxTSDFScanMatcherOptions(
+proto::CeresScanMatcherOptions CreateCeresVoxbloxESDFScanMatcherOptions(
     common::LuaParameterDictionary* const parameter_dictionary) {
   proto::CeresScanMatcherOptions options;
   for (int i = 0;; ++i) {
@@ -77,7 +77,7 @@ proto::CeresScanMatcherOptions CreateCeresVoxbloxTSDFScanMatcherOptions(
   return options;
 }
 
-CeresVoxbloxTSDFScanMatcher::CeresVoxbloxTSDFScanMatcher(
+CeresVoxbloxESDFScanMatcher::CeresVoxbloxESDFScanMatcher(
     const proto::CeresScanMatcherOptions& options)
     : options_(options),
       ceres_solver_options_(
@@ -85,9 +85,9 @@ CeresVoxbloxTSDFScanMatcher::CeresVoxbloxTSDFScanMatcher(
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
-void CeresVoxbloxTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
+void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
                              const transform::Rigid3d& initial_pose_estimate,
-                             const std::vector<PointCloudAndVoxbloxTSDFPointers>&
+                             const std::vector<PointCloudAndVoxbloxESDFPointers>&
                                  point_clouds_and_tsdfs,
                              float max_truncation_distance,
                              int coarsening_factor,
@@ -112,11 +112,11 @@ void CeresVoxbloxTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
     CHECK_GT(options_.occupied_space_weight(i), 0.);
     const sensor::PointCloud& point_cloud =
         *point_clouds_and_tsdfs[i].first;
-    const std::shared_ptr<voxblox::TsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
+    const std::shared_ptr<voxblox::EsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxTSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new VoxbloxTSDFOccupiedSpaceCostFunctor(
+            new VoxbloxESDFOccupiedSpaceCostFunctor(
                 options_.occupied_space_weight(i) /
                     std::sqrt(static_cast<double>(point_cloud.size())),
                 point_cloud, tsdf, coarsening_factor, max_truncation_distance),
@@ -141,9 +141,9 @@ void CeresVoxbloxTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
   *pose_estimate = ceres_pose.ToRigid();
 }
 
-void CeresVoxbloxTSDFScanMatcher::MatchCombined(const transform::Rigid3d& previous_pose,
+void CeresVoxbloxESDFScanMatcher::MatchCombined(const transform::Rigid3d& previous_pose,
                              const transform::Rigid3d& initial_pose_estimate,
-                             const std::vector<PointCloudAndVoxbloxTSDFPointers>&
+                             const std::vector<PointCloudAndVoxbloxESDFPointers>&
                                  point_clouds_and_tsdfs,
                              float max_truncation_distance,
                              transform::Rigid3d* const pose_estimate,
@@ -167,20 +167,20 @@ void CeresVoxbloxTSDFScanMatcher::MatchCombined(const transform::Rigid3d& previo
     CHECK_GT(options_.occupied_space_weight(i), 0.);
     const sensor::PointCloud& point_cloud =
         *point_clouds_and_tsdfs[i].first;
-    const std::shared_ptr<voxblox::TsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
+    const std::shared_ptr<voxblox::EsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxTSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new VoxbloxTSDFOccupiedSpaceCostFunctor(
+            new VoxbloxESDFOccupiedSpaceCostFunctor(
                 options_.occupied_space_weight(i) /
                     std::sqrt(static_cast<double>(point_cloud.size())),
                 point_cloud, tsdf, 1, max_truncation_distance),
             point_cloud.size()),
         nullptr, ceres_pose.translation(), ceres_pose.rotation());
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxTSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new VoxbloxTSDFOccupiedSpaceCostFunctor(
+            new VoxbloxESDFOccupiedSpaceCostFunctor(
                 options_.occupied_space_weight(i+1) /
                     std::sqrt(static_cast<double>(point_cloud.size())),
                 point_cloud, tsdf, 4, max_truncation_distance),

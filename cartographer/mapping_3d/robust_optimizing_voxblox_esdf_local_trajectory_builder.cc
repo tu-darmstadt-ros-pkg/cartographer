@@ -22,7 +22,7 @@
 #include "cartographer/kalman_filter/pose_tracker.h"
 #include "cartographer/mapping_3d/proto/optimizing_local_trajectory_builder_options.pb.h"
 #include "cartographer/mapping_3d/rotation_cost_function.h"
-#include "cartographer/mapping_3d/scan_matching/voxblox_tsdf_occupied_space_cost_functor.h"
+#include "cartographer/mapping_3d/scan_matching/voxblox_esdf_occupied_space_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.pb.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/translation_cost_function.h"
@@ -261,29 +261,29 @@ RobustOptimizingVoxbloxESDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
     Batch& batch = batches_[i];
 
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxESDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor(
+            new scan_matching::VoxbloxESDFOccupiedSpaceCostFunctor(
                 options_.optimizing_local_trajectory_builder_options()
                         .high_resolution_grid_weight() /
                     std::sqrt(static_cast<double>(
                         batch.high_resolution_filtered_points.size())),
                 batch.high_resolution_filtered_points,
-                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
+                submaps_->GetVoxbloxESDFPtr(submaps_->matching_index()), 1.0,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor,
+        new ceres::AutoDiffCostFunction<scan_matching::VoxbloxESDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
-            new scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor(
+            new scan_matching::VoxbloxESDFOccupiedSpaceCostFunctor(
                 options_.optimizing_local_trajectory_builder_options()
                         .low_resolution_grid_weight() /
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
+                submaps_->GetVoxbloxESDFPtr(submaps_->matching_index()), 1.0,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());

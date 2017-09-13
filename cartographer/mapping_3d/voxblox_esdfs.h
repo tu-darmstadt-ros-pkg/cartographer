@@ -75,6 +75,7 @@ class VoxbloxESDFs : public mapping::Submaps {
   const chisel::ChiselPtr<chisel::DistVoxel> GetChiselPtr(int index) const override{
       LOG(FATAL) << "Not implemented."; }
   const std::shared_ptr<voxblox::TsdfMap> GetVoxbloxTSDFPtr(int index) const override;
+  const std::shared_ptr<voxblox::EsdfMap> GetVoxbloxESDFPtr(int index) const override;
   const std::shared_ptr<voxblox::TsdfIntegratorBase> GetIntegrator(int index) const;
   int size() const override;
 
@@ -125,7 +126,7 @@ class VoxbloxESDFs : public mapping::Submaps {
   string ComputePixelValues(
       const std::vector<PixelData>& accumulated_pixel_data) const;
 
-  void AddTSDF(const transform::Rigid3d &origin);
+  void AddESDF(const transform::Rigid3d &origin);
 
   const proto::TSDFsOptions options_;
 
