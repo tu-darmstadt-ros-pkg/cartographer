@@ -29,7 +29,7 @@ namespace cartographer {
 namespace mapping_3d {
 
 //namespace {
-proto::ProjectionIntegratorOptions CreateVoxbloxProjectionIntegratorOptions(
+proto::ProjectionIntegratorOptions CreateVoxbloxESDFProjectionIntegratorOptions(
     common::LuaParameterDictionary* parameter_dictionary){
   proto::ProjectionIntegratorOptions options;
   options.set_truncation_scale(
@@ -44,7 +44,7 @@ proto::ProjectionIntegratorOptions CreateVoxbloxProjectionIntegratorOptions(
 }
 
 
-proto::TSDFsOptions CreateVoxbloxTSDFsOptions(
+proto::TSDFsOptions CreateVoxbloxESDFsOptions(
     common::LuaParameterDictionary* parameter_dictionary) {
   proto::TSDFsOptions options;
   options.set_high_resolution(
@@ -61,7 +61,7 @@ proto::TSDFsOptions CreateVoxbloxTSDFsOptions(
   options.set_chuck_size_z(
       parameter_dictionary->GetNonNegativeInt("chuck_size_z"));
   *options.mutable_projection_integrator_options() =
-      CreateVoxbloxProjectionIntegratorOptions(
+      CreateVoxbloxESDFProjectionIntegratorOptions(
           parameter_dictionary->GetDictionary("projection_integrator").get());
   CHECK_GT(options.num_range_data(), 0);
   CHECK_GT(options.chuck_size_x(), 0);
@@ -370,7 +370,7 @@ void VoxbloxESDFs::AddESDF(const transform::Rigid3d& origin) {
       integrator_config.default_truncation_distance;
   esdf_integrator_config.max_distance_m = 0.5;
   esdf_integrator_config.default_distance_m = 0.5;
-  esdf_integrator_config.min_diff_m = 0.3;
+  //esdf_integrator_config.min_diff_m = 0.3;
 
   std::shared_ptr<voxblox::EsdfIntegrator> esdf_integrator;
   esdf_integrator.reset(new voxblox::EsdfIntegrator(esdf_integrator_config,

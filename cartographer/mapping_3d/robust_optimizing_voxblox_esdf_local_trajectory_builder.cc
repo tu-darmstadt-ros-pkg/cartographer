@@ -112,7 +112,7 @@ RobustOptimizingVoxbloxESDFLocalTrajectoryBuilder::RobustOptimizingVoxbloxESDFLo
       num_accumulated_(0),
       num_update_scans_(0),
       motion_filter_(options.motion_filter_options()) {
-  LOG(INFO)<<"Initialized RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder";
+  LOG(INFO)<<"Initialized RobustOptimizingVoxbloxESDFLocalTrajectoryBuilder";
 }
 
 RobustOptimizingVoxbloxESDFLocalTrajectoryBuilder::~RobustOptimizingVoxbloxESDFLocalTrajectoryBuilder() {}

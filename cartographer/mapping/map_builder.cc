@@ -28,6 +28,7 @@
 #include "cartographer/mapping_3d/global_trajectory_builder.h"
 #include "cartographer/mapping_3d/global_tsdf_trajectory_builder.h"
 #include "cartographer/mapping_3d/global_voxblox_tsdf_trajectory_builder.h"
+#include "cartographer/mapping_3d/global_voxblox_esdf_trajectory_builder.h"
 #include "cartographer/mapping_3d/local_trajectory_builder_options.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/sensor/voxel_filter.h"
@@ -88,7 +89,9 @@ MapBuilder::MapBuilder(const proto::MapBuilderOptions& options)
       break;
     case proto::MapBuilderOptions::VOXBLOX_ESDF:
       LOG(INFO)<<"MAP_TYPE: VOXBLOX_ESDF";
-      LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+      sparse_pose_graph_voxblox_esdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphVoxbloxESDFConversion>(
+            options_.sparse_pose_graph_options(), &thread_pool_);
+      sparse_pose_graph_ = sparse_pose_graph_voxblox_esdf_3d_.get();
       break;
     }
   }
@@ -128,7 +131,12 @@ int MapBuilder::AddTrajectoryBuilder(
                 trajectory_id, sparse_pose_graph_voxblox_tsdf_3d_.get())));
       break;
     case proto::MapBuilderOptions::VOXBLOX_ESDF:
-      LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+      trajectory_builders_.push_back(
+            common::make_unique<CollatedTrajectoryBuilder>(
+              &sensor_collator_, trajectory_id, expected_sensor_ids,
+              common::make_unique<mapping_3d::GlobalVoxbloxESDFTrajectoryBuilder>(
+                trajectory_options.trajectory_builder_3d_options(),
+                trajectory_id, sparse_pose_graph_voxblox_esdf_3d_.get())));
       break;
     }
   } else {
@@ -220,7 +228,9 @@ void MapBuilder::reset() {
           sparse_pose_graph_ = sparse_pose_graph_voxblox_tsdf_3d_.get();
           break;
         case proto::MapBuilderOptions::VOXBLOX_ESDF:
-          LOG(FATAL)<<"MapBuilderOptions::VOXBLOX_ESDF not implemented";
+          sparse_pose_graph_voxblox_esdf_3d_ = common::make_unique<mapping_3d::SparsePoseGraphVoxbloxESDFConversion>(
+                options_.sparse_pose_graph_options(), &thread_pool_);
+          sparse_pose_graph_ = sparse_pose_graph_voxblox_esdf_3d_.get();
           break;
         }
     }

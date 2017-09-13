@@ -37,6 +37,7 @@
 #include "cartographer/mapping_3d/sparse_pose_graph.h"
 #include "cartographer/mapping_3d/sparse_pose_graph_conversion.h"
 #include "cartographer/mapping_3d/sparse_pose_graph_voxblox_conversion.h"
+#include "cartographer/mapping_3d/sparse_pose_graph_voxblox_esdf_conversion.h"
 #include "cartographer/sensor/collator.h"
 
 namespace cartographer {
@@ -87,6 +88,7 @@ class MapBuilder {
   mapping::SparsePoseGraph* sparse_pose_graph();
 
   void reset();
+#include "cartographer/mapping_3d/sparse_pose_graph_voxblox_conversion.h"
 
  private:
   const proto::MapBuilderOptions options_;
@@ -96,6 +98,7 @@ class MapBuilder {
   std::unique_ptr<mapping_3d::SparsePoseGraph> sparse_pose_graph_3d_;
   std::unique_ptr<mapping_3d::SparsePoseGraphConversion> sparse_pose_graph_tsdf_3d_;
   std::unique_ptr<mapping_3d::SparsePoseGraphVoxbloxConversion> sparse_pose_graph_voxblox_tsdf_3d_;
+  std::unique_ptr<mapping_3d::SparsePoseGraphVoxbloxESDFConversion> sparse_pose_graph_voxblox_esdf_3d_;
 
 
   mapping::SparsePoseGraph* sparse_pose_graph_;
