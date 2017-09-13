@@ -306,7 +306,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetChiselPtr(submaps_->matching_index()),2,
+                submaps_->GetChiselPtr(submaps_->matching_index()),1,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());

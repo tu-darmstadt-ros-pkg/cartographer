@@ -65,14 +65,94 @@ public:
 
     ComputeInterpolationDataPoints(x_local, y_local, z_local, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
 
-    const double q111 = getVoxelSDF(x1, y1, z1);
-    const double q112 = getVoxelSDF(x1, y1, z2);
-    const double q121 = getVoxelSDF(x1, y2, z1);
-    const double q122 = getVoxelSDF(x1, y2, z2);
-    const double q211 = getVoxelSDF(x2, y1, z1);
-    const double q212 = getVoxelSDF(x2, y1, z2);
-    const double q221 = getVoxelSDF(x2, y2, y1);
-    const double q222 = getVoxelSDF(x2, y2, z2);
+    double q111, q112, q121, q122, q211, q212, q221, q222;
+    size_t num_invalid_voxel = 0;
+    double summed_valid_sdf = 0.0;
+    if(!getVoxelSDF(x1, y1, z1, q111)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q111;
+    }
+    if(!getVoxelSDF(x1, y1, z2, q112)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q112;
+    }
+    if(!getVoxelSDF(x1, y2, z1, q121)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q121;
+    }
+    if(!getVoxelSDF(x1, y2, z2, q122)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q122;
+    }
+    if(!getVoxelSDF(x2, y1, z1, q211)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q211;
+    }
+    if(!getVoxelSDF(x2, y1, z2, q212)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q212;
+    }
+    if(!getVoxelSDF(x2, y2, z1, q221)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q221;
+    }
+    if(!getVoxelSDF(x2, y2, z2, q222)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q222;
+    }
+
+    if(num_invalid_voxel > 0)
+    {
+      double signed_max_tsdf = summed_valid_sdf < 0 ? - max_truncation_distance_ : max_truncation_distance_;
+      if(std::isnan(q111)) {
+        q111 = signed_max_tsdf;
+      }
+      if(std::isnan(q112)) {
+        q112 = signed_max_tsdf;
+      }
+      if(std::isnan(q121)) {
+        q121 = signed_max_tsdf;
+      }
+      if(std::isnan(q122)) {
+        q122 = signed_max_tsdf;
+      }
+      if(std::isnan(q211)) {
+        q211 = signed_max_tsdf;
+      }
+      if(std::isnan(q212)) {
+        q212 = signed_max_tsdf;
+      }
+      if(std::isnan(q221)) {
+        q221 = signed_max_tsdf;
+      }
+      if(std::isnan(q222)) {
+        q222 = signed_max_tsdf;
+      }
+    }
 
     const T normalized_x = (x - x1) / (x2 - x1);
     const T normalized_y = (y - y1) / (y2 - y1);
@@ -152,24 +232,29 @@ private:
   }
 
 
-  double getVoxelSDF(double x, double y, double z) const
+  bool getVoxelSDF(double x, double y, double z, double& sdf) const
   {
-    double q = max_truncation_distance_;
+    sdf = NAN;
+    bool valid = false;
     voxblox::Point point(x, y, z);
     voxblox::Layer<voxblox::TsdfVoxel>::BlockType::ConstPtr block_ptr =
         tsdf_->getTsdfLayer().getBlockPtrByCoordinates(point);
     if (block_ptr != nullptr) {
       const voxblox::TsdfVoxel& voxel = block_ptr->getVoxelByCoordinates(point);
       if (voxel.weight > 0.0)
-        q = (double)voxel.distance;
-      if(q > max_truncation_distance_)
+      {
+        sdf = (double)voxel.distance;
+        valid = true;
+      }
+      if(std::abs(sdf) > max_truncation_distance_ )
       {
         //LOG(WARNING)<<"q >>> max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
         //LOG(WARNING)<<"weight: "<< voxel.weight; //todo(kdaun) enable warnings
-        q = max_truncation_distance_;
+        sdf = NAN;
+        valid = false;
       }
     }
-    return q;
+    return valid;
   }
 
   const std::shared_ptr<voxblox::TsdfMap> tsdf_;

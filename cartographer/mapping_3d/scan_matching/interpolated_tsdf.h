@@ -73,14 +73,94 @@ class InterpolatedTSDF {
     const chisel::DistVoxel* v221 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z1));
     const chisel::DistVoxel* v222 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x2,y2,z2));
 
-    const double q111 = getVoxelSDF(v111);
-    const double q112 = getVoxelSDF(v112);
-    const double q121 = getVoxelSDF(v121);
-    const double q122 = getVoxelSDF(v122);
-    const double q211 = getVoxelSDF(v211);
-    const double q212 = getVoxelSDF(v212);
-    const double q221 = getVoxelSDF(v221);
-    const double q222 = getVoxelSDF(v222);
+    double q111, q112, q121, q122, q211, q212, q221, q222;
+    size_t num_invalid_voxel = 0;
+    double summed_valid_sdf = 0.0;
+    if(!getVoxelSDF(v111, q111)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q111;
+    }
+    if(!getVoxelSDF(v112, q112)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q112;
+    }
+    if(!getVoxelSDF(v121, q121)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q121;
+    }
+    if(!getVoxelSDF(v122, q122)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q122;
+    }
+    if(!getVoxelSDF(v211, q211)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q211;
+    }
+    if(!getVoxelSDF(v212, q212)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q212;
+    }
+    if(!getVoxelSDF(v221, q221)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q221;
+    }
+    if(!getVoxelSDF(v222, q222)) {
+      num_invalid_voxel++;
+    }
+    else
+    {
+      summed_valid_sdf += q222;
+    }
+
+    if(num_invalid_voxel > 0)
+    {
+      double signed_max_tsdf = summed_valid_sdf < 0 ? - max_truncation_distance_ : max_truncation_distance_;
+      if(std::isnan(q111)) {
+        q111 = signed_max_tsdf;
+      }
+      if(std::isnan(q112)) {
+        q112 = signed_max_tsdf;
+      }
+      if(std::isnan(q121)) {
+        q121 = signed_max_tsdf;
+      }
+      if(std::isnan(q122)) {
+        q122 = signed_max_tsdf;
+      }
+      if(std::isnan(q211)) {
+        q211 = signed_max_tsdf;
+      }
+      if(std::isnan(q212)) {
+        q212 = signed_max_tsdf;
+      }
+      if(std::isnan(q221)) {
+        q221 = signed_max_tsdf;
+      }
+      if(std::isnan(q222)) {
+        q222 = signed_max_tsdf;
+      }
+    }
 
     const T normalized_x = (x - x1) / (x2 - x1);
     const T normalized_y = (y - y1) / (y2 - y1);
@@ -143,9 +223,10 @@ class InterpolatedTSDF {
       const auto& chunk_manager = tsdf_->GetChunkManager();
       const float coarsed_resolution = chunk_manager.GetResolution()*coarsening_factor;
       const float round = 1/coarsed_resolution;
-      float x_0 = static_cast<float>(std::floor(x * round))/round;
-      float y_0 = static_cast<float>(std::floor(y * round))/round;
-      float z_0 = static_cast<float>(std::floor(z * round))/round;
+      const float offset = 0.5 * coarsed_resolution;
+      float x_0 = static_cast<float>((std::floor(x * round + 0.5)/round) - offset);
+      float y_0 = static_cast<float>((std::floor(y * round + 0.5)/round) - offset);
+      float z_0 = static_cast<float>((std::floor(z * round + 0.5)/round) - offset);
       Eigen::Vector3f center(x_0, y_0, z_0);
       return center;
   }
@@ -158,21 +239,26 @@ class InterpolatedTSDF {
   }
 
 
-  double getVoxelSDF(const chisel::DistVoxel* voxel) const
+
+
+  bool getVoxelSDF(const chisel::DistVoxel* voxel, double& sdf) const
   {
-      double q = max_truncation_distance_;
-      if(voxel) {
-        if(voxel->IsValid()) {
-            q = voxel->GetSDF();
-        }
-      }      
-      if(q > max_truncation_distance_)
-      {
-          LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
-          LOG(WARNING)<<"weight: "<< voxel->GetWeight();
-          q = max_truncation_distance_;
+    sdf = NAN;
+    bool valid = false;
+    if(voxel) {
+      if(voxel->IsValid()) {
+        sdf = voxel->GetSDF();
+        valid = true;
       }
-      return q;
+    }
+    if(std::abs(sdf) > max_truncation_distance_ )
+    {
+      //LOG(WARNING)<<"q > max_truncation_distance "<< q <<" > "<< max_truncation_distance_;
+      //s LOG(WARNING)<<"weight: "<< voxel->GetWeight();
+      sdf = NAN;
+      valid = false;
+    }
+    return valid;
   }
 
   chisel::ChiselConstPtr<chisel::DistVoxel> tsdf_;

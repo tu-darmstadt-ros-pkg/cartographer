@@ -273,6 +273,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
+
     problem.AddResidualBlock(
         new ceres::AutoDiffCostFunction<scan_matching::VoxbloxTSDFOccupiedSpaceCostFunctor,
                                         ceres::DYNAMIC, 3, 4>(
@@ -282,7 +283,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                     std::sqrt(static_cast<double>(
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
-                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 2.0,
+                submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
                 submaps_->Get(submaps_->matching_index())->max_truncation_distance),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
