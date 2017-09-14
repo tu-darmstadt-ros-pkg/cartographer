@@ -123,18 +123,22 @@ void CeresTSDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
             point_cloud.size()),
         nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }
-  CHECK_GT(options_.translation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<TranslationDeltaCostFunctor, 3, 3>(
-          new TranslationDeltaCostFunctor(options_.translation_weight(),
-                                          previous_pose)),
-      nullptr, ceres_pose.translation());
-  CHECK_GT(options_.rotation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
-          new RotationDeltaCostFunctor(options_.rotation_weight(),
-                                       initial_pose_estimate.rotation())),
-      nullptr, ceres_pose.rotation());
+  CHECK_GE(options_.translation_weight(), 0.);
+  if(options_.translation_weight() != 0.) {
+    problem.AddResidualBlock(
+          new ceres::AutoDiffCostFunction<TranslationDeltaCostFunctor, 3, 3>(
+            new TranslationDeltaCostFunctor(options_.translation_weight(),
+                                            previous_pose)),
+          nullptr, ceres_pose.translation());
+  }
+  CHECK_GE(options_.rotation_weight(), 0.);
+  if(options_.rotation_weight() != 0.) {
+    problem.AddResidualBlock(
+          new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
+            new RotationDeltaCostFunctor(options_.rotation_weight(),
+                                         initial_pose_estimate.rotation())),
+          nullptr, ceres_pose.rotation());
+  }
 
   ceres::Solve(ceres_solver_options_, &problem, summary);
 

@@ -58,7 +58,7 @@ PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::D
   Eigen::Array3f origin = hybrid_grid->GetChunkManager().GetOrigin();
   float resolution = hybrid_grid->GetChunkManager().GetResolution();
   float min_sdf = 0.f;
-  float max_sdf = 0.5f;
+  float max_sdf = 0.5f; //todo(kdaun) get from config
 
   for(float x = min.x(); x < max.x(); x = x + resolution)
   {

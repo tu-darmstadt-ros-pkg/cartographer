@@ -107,35 +107,38 @@ void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
   //CHECK_EQ(options_.occupied_space_weight_size(),
   //         point_clouds_and_tsdfs.size()); todo reenable
 
- // LOG(INFO) << "point_clouds_and_hybrid_grids.size() '" << point_clouds_and_tsdfs.size();
+  // LOG(INFO) << "point_clouds_and_hybrid_grids.size() '" << point_clouds_and_tsdfs.size();
   for (size_t i = 0; i != point_clouds_and_tsdfs.size(); ++i) {
     CHECK_GT(options_.occupied_space_weight(i), 0.);
     const sensor::PointCloud& point_cloud =
         *point_clouds_and_tsdfs[i].first;
     const std::shared_ptr<voxblox::EsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
     problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
-                                        ceres::DYNAMIC, 3, 4>(
+          new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
+          ceres::DYNAMIC, 3, 4>(
             new VoxbloxESDFOccupiedSpaceCostFunctor(
-                options_.occupied_space_weight(i) /
-                    std::sqrt(static_cast<double>(point_cloud.size())),
-                point_cloud, tsdf, coarsening_factor, max_truncation_distance),
+              options_.occupied_space_weight(i) /
+              std::sqrt(static_cast<double>(point_cloud.size())),
+              point_cloud, tsdf, coarsening_factor, max_truncation_distance),
             point_cloud.size()),
-        nullptr, ceres_pose.translation(), ceres_pose.rotation());
+          nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }
-  CHECK_GT(options_.translation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<TranslationDeltaCostFunctor, 3, 3>(
-          new TranslationDeltaCostFunctor(options_.translation_weight(),
-                                          previous_pose)),
-      nullptr, ceres_pose.translation());
-  CHECK_GT(options_.rotation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
-          new RotationDeltaCostFunctor(options_.rotation_weight(),
-                                       initial_pose_estimate.rotation())),
-      nullptr, ceres_pose.rotation());
-
+  CHECK_GE(options_.translation_weight(), 0.);
+  if(options_.translation_weight() != 0.) {
+    problem.AddResidualBlock(
+          new ceres::AutoDiffCostFunction<TranslationDeltaCostFunctor, 3, 3>(
+            new TranslationDeltaCostFunctor(options_.translation_weight(),
+                                            previous_pose)),
+          nullptr, ceres_pose.translation());
+  }
+  CHECK_GE(options_.rotation_weight(), 0.);
+  if(options_.rotation_weight() != 0.) {
+    problem.AddResidualBlock(
+          new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
+            new RotationDeltaCostFunctor(options_.rotation_weight(),
+                                         initial_pose_estimate.rotation())),
+          nullptr, ceres_pose.rotation());
+  }
   ceres::Solve(ceres_solver_options_, &problem, summary);
 
   *pose_estimate = ceres_pose.ToRigid();
