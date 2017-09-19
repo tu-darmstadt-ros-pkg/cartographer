@@ -92,6 +92,53 @@ PrecomputationGrid ConvertToPrecomputationGrid(const chisel::ChiselPtr<chisel::D
   return result;
 }
 
+
+PrecomputationGrid ConvertToPrecomputationGrid(const std::shared_ptr<voxblox::TsdfMap> hybrid_grid) {
+  PrecomputationGrid result(hybrid_grid->getTsdfLayer().voxel_size());
+  Eigen::Array3f origin = {0,0,0}; //todo(kdaun) set origin
+  LOG(WARNING)<<"reading default origin";
+  float resolution = hybrid_grid->getTsdfLayer().voxel_size();
+  float min_sdf = 0.f;
+  float max_sdf = 0.5f; //todo(kdaun) get from config
+
+  voxblox::BlockIndexList blocks;
+  hybrid_grid->getTsdfLayer().getAllAllocatedBlocks(&blocks);
+
+  // Cache layer settings.
+  size_t vps = hybrid_grid->getTsdfLayer().voxels_per_side();
+  size_t num_voxels_per_block = vps * vps * vps;
+
+  // Iterate over all blocks.
+  for (const voxblox::BlockIndex& index : blocks) {
+    // Iterate over all voxels in said blocks.
+    const voxblox::Block<voxblox::TsdfVoxel>& block = hybrid_grid->getTsdfLayer().getBlockByIndex(index);
+
+    for (size_t linear_index = 0; linear_index < num_voxels_per_block;
+         ++linear_index) {
+      voxblox::Point coord = block.computeCoordinatesFromLinearIndex(linear_index);
+      const voxblox::TsdfVoxel& voxel = block.getVoxelByLinearIndex(linear_index);
+      if (voxel.weight > 0.1) { // valid
+        const float sdf = voxel.distance;
+        const int cell_value = 255 - common::RoundToInt(sdf - min_sdf) *
+            (255.f / (max_sdf - min_sdf));
+        Eigen::Array3f point;
+        point.x() = coord[0];
+        point.y() = coord[1];
+        point.z() = coord[2];
+        Eigen::Array3f index_float = (point - origin).array() / resolution + Eigen::Array3f({1e-5,1e-5,1e-5}); //todo(kdaun) handle cell offset between voxblox and cartographer grid;
+        Eigen::Array3i index_int(common::RoundToInt(index_float.x()),
+                              common::RoundToInt(index_float.y()),
+                              common::RoundToInt(index_float.z()));
+        *result.mutable_value(index_int) = cell_value;
+      }
+    }
+  }
+
+
+  return result;
+}
+
+
 PrecomputationGrid ConvertToPrecomputationGrid(const HybridGrid& hybrid_grid) {
   PrecomputationGrid result(hybrid_grid.resolution());
   for (auto it = HybridGrid::Iterator(hybrid_grid); !it.Done(); it.Next()) {

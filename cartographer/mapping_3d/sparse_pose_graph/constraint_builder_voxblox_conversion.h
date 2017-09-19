@@ -35,6 +35,7 @@
 #include "cartographer/mapping/trajectory_node.h"
 #include "cartographer/mapping_3d/scan_matching/ceres_tsdf_scan_matcher.h"
 #include "cartographer/mapping_3d/scan_matching/fast_correlative_conversion_scan_matcher.h"
+#include "cartographer/mapping_3d/scan_matching/fast_correlative_voxblox_conversion_scan_matcher.h"
 #include "cartographer/mapping_3d/sparse_pose_graph/optimization_problem.h"
 #include "cartographer/mapping_3d/voxblox_tsdfs.h"
 #include "cartographer/sensor/compressed_point_cloud.h"
@@ -109,7 +110,7 @@ class ConstraintBuilderVoxbloxConversion {
  private:
   struct SubmapScanMatcher {
     std::shared_ptr<voxblox::TsdfMap> hybrid_grid;
-    std::unique_ptr<scan_matching::FastCorrelativeConversionScanMatcher>
+    std::unique_ptr<scan_matching::FastCorrelativeVoxbloxConversionScanMatcher>
         fast_correlative_scan_matcher;
   };
 
