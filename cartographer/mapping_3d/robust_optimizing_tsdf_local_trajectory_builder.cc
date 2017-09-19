@@ -441,8 +441,10 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
     i_batch++;
-    if(i_batch == scans_per_map_update)
+    if(i_batch == scans_per_map_update && (num_accumulated_ > options_.scans_per_accumulation()))
         break;
+    else if(i_batch == options_.scans_per_accumulation()) // for the initialization we accumulated a whole scan to match against
+      break;
   }
   //We estimate the sensor position over the trajectory by using the median batch transform,
   //does not hold for multiple range scanners

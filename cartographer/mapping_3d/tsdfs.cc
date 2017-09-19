@@ -369,8 +369,8 @@ void TSDFs::AddTSDF(const transform::Rigid3d& origin) {
   double resolution = options_.high_resolution();
   double truncation_distance = options_.projection_integrator_options().truncation_distance();
   double truncation_scale = options_.projection_integrator_options().truncation_scale();
-  float max_truncation_distance = std::ceil(2.0 + (truncation_scale * truncation_distance /
-                                            resolution)) * resolution;
+  float max_truncation_distance = truncation_scale * truncation_distance * 1.5;/*std::ceil(2.0 + (truncation_scale * truncation_distance /
+                                            resolution)) * resolution;*/
   Eigen::Vector3i chunk_size;
   chunk_size.x() = options_.chuck_size_x();
   chunk_size.y() = options_.chuck_size_y();
@@ -386,6 +386,7 @@ void TSDFs::AddTSDF(const transform::Rigid3d& origin) {
   projection_integrators_.emplace_back(projection_integrator);
 
   LOG(INFO) << "truncation_distance " << truncation_distance<<" "<< truncation_scale;
+  LOG(INFO) << "max_truncation_distance " << max_truncation_distance;
   LOG(INFO) << "carving enabled " << options_.projection_integrator_options().carving_enabled();
   LOG(INFO) << "carving distance " << options_.projection_integrator_options().carving_distance();
   LOG(INFO) << "Added submap " << size();

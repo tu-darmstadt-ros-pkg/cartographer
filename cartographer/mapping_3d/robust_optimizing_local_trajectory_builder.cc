@@ -414,8 +414,10 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
       accumulated_range_data_in_tracking.returns.push_back(transform * point);
     }
     i_batch++;
-    if(i_batch == scans_per_map_update)
+    if(i_batch == scans_per_map_update && (num_accumulated_ > options_.scans_per_accumulation()))
         break;
+    else if(i_batch == options_.scans_per_accumulation()) // for the initialization we accumulated a whole scan to match against
+      break;
   }
   return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu), optimized_pose,
                                  accumulated_range_data_in_tracking);
