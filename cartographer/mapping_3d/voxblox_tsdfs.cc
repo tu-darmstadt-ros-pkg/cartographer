@@ -189,44 +189,48 @@ std::vector<Eigen::Array4i> VoxbloxTSDFs::ExtractVoxelData(
     const std::shared_ptr<voxblox::TsdfMap> hybrid_grid, const transform::Rigid3f& transform,
     Eigen::Array2i* min_index, Eigen::Array2i* max_index) const {
   std::vector<Eigen::Array4i> voxel_indices_and_probabilities;
-  LOG(WARNING)<<"ExtractVoxelData is not implemented";
-  /*const float resolution = hybrid_grid->GetChunkManager().GetResolution();
-  const float resolution_inverse = 1. / hybrid_grid->GetChunkManager().GetResolution();
-  const chisel::AABB& bounding_box = hybrid_grid->GetChunkManager().GetBoundingBox();
-  const chisel::Vec3& min = bounding_box.min;
-  const chisel::Vec3& max = bounding_box.max;
-  float min_sdf = -0.4f;
-  float max_sdf = 0.4f;
-  for(float x = min.x(); x < max.x(); x = x + resolution)
-  {
-      for(float y = min.y(); y < max.y(); y = y + resolution)
-      {
-          for(float z = min.z(); z < max.z(); z = z + resolution)
-          {
-              const auto& chunk_manager = hybrid_grid->GetChunkManager();
-              const chisel::DistVoxel* voxel = chunk_manager.GetDistanceVoxelGlobal(chisel::Vec3(x,y,z));
-              if(voxel) {
-                if(voxel->IsValid()) {
-                    const float sdf = voxel->GetSDF();
-                    int cell_value = common::RoundToInt((sdf - min_sdf) *
-                        (255.f / (max_sdf - min_sdf)));
-                    const Eigen::Vector3f cell_center_local =  Eigen::Vector3f(x,y,z);
-                    const Eigen::Vector3f cell_center_global = transform * cell_center_local;
-                    const Eigen::Array4i voxel_index_and_probability(
-                        common::RoundToInt(cell_center_global.x() * resolution_inverse),
-                        common::RoundToInt(cell_center_global.y() * resolution_inverse),
-                        common::RoundToInt(cell_center_global.z() * resolution_inverse),
-                        cell_value);
+  const float resolution = hybrid_grid->getTsdfLayer().voxel_size();
+  const float resolution_inverse = 1. / resolution;
+  float min_sdf = -0.2f;
+  float max_sdf = 0.2f;
 
-                    voxel_indices_and_probabilities.push_back(voxel_index_and_probability);
-                    const Eigen::Array2i pixel_index = voxel_index_and_probability.head<2>();
-                    *min_index = min_index->cwiseMin(pixel_index);
-                    *max_index = max_index->cwiseMax(pixel_index);
-                }
-              }
-          }
+  voxblox::BlockIndexList blocks;
+  hybrid_grid->getTsdfLayer().getAllAllocatedBlocks(&blocks);
+
+  // Cache layer settings.
+  size_t vps = hybrid_grid->getTsdfLayer().voxels_per_side();
+  size_t num_voxels_per_block = vps * vps * vps;
+
+  // Temp variables.
+  double intensity = 0.0;
+  // Iterate over all blocks.
+  for (const voxblox::BlockIndex& index : blocks) {
+    // Iterate over all voxels in said blocks.
+    const voxblox::Block<voxblox::TsdfVoxel>& block = hybrid_grid->getTsdfLayer().getBlockByIndex(index);
+
+    for (size_t linear_index = 0; linear_index < num_voxels_per_block;
+         ++linear_index) {
+      voxblox::Point coord = block.computeCoordinatesFromLinearIndex(linear_index);
+      const voxblox::TsdfVoxel& voxel = block.getVoxelByLinearIndex(linear_index);
+      if (voxel.weight > 0.1) { // valid
+        const float sdf = voxel.distance;
+        int cell_value = common::RoundToInt((sdf - min_sdf) *
+            (255.f / (max_sdf - min_sdf)));
+        const Eigen::Vector3f cell_center_local =  Eigen::Vector3f(coord);
+        const Eigen::Vector3f cell_center_global = transform * cell_center_local +Eigen::Vector3f({1e-5,1e-5,1e-5}); //todo(kdaun) handle cell offset between voxblox and cartographer grid
+        const Eigen::Array4i voxel_index_and_probability(
+            common::RoundToInt(cell_center_global.x() * resolution_inverse),
+            common::RoundToInt(cell_center_global.y() * resolution_inverse),
+            common::RoundToInt(cell_center_global.z() * resolution_inverse),
+            cell_value);
+
+        voxel_indices_and_probabilities.push_back(voxel_index_and_probability);
+        const Eigen::Array2i pixel_index = voxel_index_and_probability.head<2>();
+        *min_index = min_index->cwiseMin(pixel_index);
+        *max_index = max_index->cwiseMax(pixel_index);
       }
-  }*/
+    }
+  }
   return voxel_indices_and_probabilities;
 }
 
@@ -284,8 +288,8 @@ void VoxbloxTSDFs::SubmapToProto(
     LOG(WARNING)<<"SubmapToProto is not implemented";
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
-    /*const chisel::ChiselPtr<chisel::DistVoxel> hybrid_grid = Get(index)->tsdf;
-    response->set_resolution(hybrid_grid->GetChunkManager().GetResolution());
+    const std::shared_ptr<voxblox::TsdfMap> hybrid_grid = Get(index)->tsdf;
+    response->set_resolution(hybrid_grid->getTsdfLayer().voxel_size());
 
     // Compute a bounding box for the texture.
     Eigen::Array2i min_index(INT_MAX, INT_MAX);
@@ -307,9 +311,9 @@ void VoxbloxTSDFs::SubmapToProto(
     *response->mutable_slice_pose() =
         transform::ToProto(global_submap_pose.inverse() *
                            transform::Rigid3d::Translation(Eigen::Vector3d(
-                               max_index.x() * hybrid_grid->GetChunkManager().GetResolution(),
-                               max_index.y() * hybrid_grid->GetChunkManager().GetResolution(),
-                               global_submap_pose.translation().z())));*/
+                               max_index.x() * hybrid_grid->getTsdfLayer().voxel_size(),
+                               max_index.y() * hybrid_grid->getTsdfLayer().voxel_size(),
+                               global_submap_pose.translation().z())));
 }
 
 
