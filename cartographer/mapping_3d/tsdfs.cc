@@ -75,13 +75,9 @@ TSDF::TSDF(const float high_resolution, const float low_resolution,
                const transform::Rigid3d& origin, const int begin_range_data_index,
                float max_truncation_distance, Eigen::Vector3i& chunk_size)
     : mapping::Submap(origin),
-      max_truncation_distance(max_truncation_distance){
-    chisel::Vec3 tsdf_origin;
-    tsdf_origin.x() = origin.translation().x();
-    tsdf_origin.y() = origin.translation().y();
-    tsdf_origin.z() = origin.translation().z();
+      max_truncation_distance(max_truncation_distance) {
       tsdf.reset(new chisel::Chisel<chisel::DistVoxel>
-               (chunk_size, high_resolution, false, tsdf_origin));
+               (chunk_size, high_resolution, false));
 }
 
 
@@ -139,39 +135,45 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     chisel::PointCloud cloudOut;
     cloudOut.GetMutablePoints().resize(range_data_in_tracking.returns.size());
 
-    size_t i = 0;
-    for (const Eigen::Vector3f& pt : range_data_in_tracking.returns)
+    for(int index : insertion_indices())
     {
-        chisel::Vec3& xyz =  cloudOut.GetMutablePoints().at(i);
-        xyz(0) = pt(0);
-        xyz(1) = pt(1);
-        xyz(2) = pt(2);
-        i++;
-    }
+        TSDF* submap = submaps_[index].get();
+        const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
+            range_data_in_tracking, submap->local_pose.inverse().cast<float>());
+        size_t i = 0;
+        for (const Eigen::Vector3f& pt : transformed_range_data.returns)
+        {
+            chisel::Vec3& xyz =  cloudOut.GetMutablePoints().at(i);
+            xyz(0) = pt(0);
+            xyz(1) = pt(1);
+            xyz(2) = pt(2);
+            i++;
+        }
+        Eigen::Vector3f transformed_sensor_origin = submap->local_pose.inverse().cast<float>() * sensor_origin;
 
-    //LOG(INFO)<<"sensor: "<<sensor_origin;
-    chisel::Vec3 chisel_pose;
-    chisel_pose.x() = sensor_origin.x();
-    chisel_pose.y() = sensor_origin.y();
-    chisel_pose.z() = sensor_origin.z();
+        chisel::Vec3 chisel_pose;
+        chisel_pose.x() = transformed_sensor_origin.x();
+        chisel_pose.y() = transformed_sensor_origin.y();
+        chisel_pose.z() = transformed_sensor_origin.z();
 
-    for(int insertion_index : insertion_indices())
-    {
-        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
+        chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[index]->tsdf;
         //TSDF* submap = submaps_[insertion_index].get();
         const chisel::ProjectionIntegrator& projection_integrator =
-                projection_integrators_[insertion_index];
+                projection_integrators_[index];
         chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
         //min and max dist are already filtered in the local trajectory builder
         chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
                                          chisel_pose, 0.0f, HUGE_VALF);
        // chisel_tsdf->UpdateMeshes();
+        ++submap->num_range_data;
     }
 
+
     ++num_range_data_in_last_submap_;
-    if (num_range_data_in_last_submap_ == options_.num_range_data()) {
+    const TSDF* const last_submap = Get(size() - 1);
+    if (last_submap->num_range_data == options_.num_range_data()) {
       AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
-                                 gravity_alignment)); //todo(kdaun) check transforms
+                                   gravity_alignment));
     }
 }
 
@@ -190,29 +192,36 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
     {
         chisel::PointCloud cloudOut;
         cloudOut.GetMutablePoints().resize(combined_data.range_data_.returns.size());
-
-        size_t i = 0;
-        for (const Eigen::Vector3f& pt : combined_data.range_data_.returns)
+        for(int index : insertion_indices())
         {
-            chisel::Vec3& xyz = cloudOut.GetMutablePoints().at(i);
-            xyz(0) = pt(0);
-            xyz(1) = pt(1);
-            xyz(2) = pt(2);
-            i++;
-        }
 
-        //LOG(INFO)<<"sensor: "<<sensor_origin;
-        chisel::Vec3 chisel_pose;
-        chisel_pose.x() = combined_data.pose_.translation().x();
-        chisel_pose.y() = combined_data.pose_.translation().y();
-        chisel_pose.z() = combined_data.pose_.translation().z();
+            TSDF* submap = submaps_[index].get();
+            const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
+                combined_data.range_data_, submap->local_pose.inverse().cast<float>());
 
-        for(int insertion_index : insertion_indices())
-        {
-            chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[insertion_index]->tsdf;
+            size_t i = 0;
+            for (const Eigen::Vector3f& pt : transformed_range_data.returns)
+            {
+                chisel::Vec3& xyz =  cloudOut.GetMutablePoints().at(i);
+                xyz(0) = pt(0);
+                xyz(1) = pt(1);
+                xyz(2) = pt(2);
+                i++;
+            }
+            Eigen::Vector3f transformed_sensor_origin = submap->local_pose.inverse().cast<float>() * combined_data.pose_.translation().cast<float>();
+
+            chisel::Vec3 chisel_pose;
+            chisel_pose.x() = transformed_sensor_origin.x();
+            chisel_pose.y() = transformed_sensor_origin.y();
+            chisel_pose.z() = transformed_sensor_origin.z();
+
+
+
+
+            chisel::ChiselPtr<chisel::DistVoxel> chisel_tsdf = submaps_[index]->tsdf;
             //TSDF* submap = submaps_[insertion_index].get();
             const chisel::ProjectionIntegrator& projection_integrator =
-                    projection_integrators_[insertion_index];
+                    projection_integrators_[index];
             //min and max dist are already filtered in the local trajectory builder
             chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
                                              chisel_pose, 0.0f, HUGE_VALF);
@@ -224,12 +233,19 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
         //submaps_[insertion_index]->tsdf->UpdateMeshes();
     }
 
+    for (const int index : insertion_indices()) {
+      TSDF* submap = submaps_[index].get();
+      ++submap->num_range_data;
+    }
+
 
     ++num_range_data_in_last_submap_;
-    if (num_range_data_in_last_submap_ == options_.num_range_data()) {
-       AddTSDF(transform::Rigid3d(combined_range_data.back().range_data_.origin.cast<double>(),
-                                 gravity_alignment)); //todo(kdaun) check transforms
+    const TSDF* const last_submap = Get(size() - 1);
+    if (last_submap->num_range_data == options_.num_range_data()) {
+      AddTSDF(transform::Rigid3d(combined_range_data.back().range_data_.origin.cast<double>(),
+                                   gravity_alignment));
     }
+
 }
 
 
