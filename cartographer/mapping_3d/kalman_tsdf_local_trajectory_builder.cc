@@ -169,54 +169,24 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   pose_tracker_->GetPoseEstimateMeanAndCovariance(
       time, &pose_prediction, &unused_covariance_prediction);
 
-  transform::Rigid3d initial_ceres_pose = pose_prediction;
+  const TSDF* const matching_submap =
+      submaps_->Get(submaps_->matching_index());
+  transform::Rigid3d initial_ceres_pose = matching_submap->local_pose.inverse() * pose_prediction;
   sensor::AdaptiveVoxelFilter adaptive_voxel_filter(
       options_.high_resolution_adaptive_voxel_filter_options());
   const sensor::PointCloud filtered_point_cloud_in_tracking =
       adaptive_voxel_filter.Filter(filtered_range_data.returns);
 
-  transform::Rigid3d pose_observation;
+  transform::Rigid3d pose_observation_in_submap;
   ceres::Solver::Summary summary;
-
-  sensor::AdaptiveVoxelFilter low_resolution_adaptive_voxel_filter(
-      options_.low_resolution_adaptive_voxel_filter_options());
-  const sensor::PointCloud low_resolution_point_cloud_in_tracking =
-      low_resolution_adaptive_voxel_filter.Filter(filtered_range_data.returns);
-  /*
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
-                             {{&filtered_point_cloud_in_tracking,
-                               &submaps_->high_resolution_matching_grid()},
-                              {&low_resolution_point_cloud_in_tracking,
-                               &submaps_->low_resolution_matching_grid()}},
-                             &pose_observation, &summary);*/
-
   int coarsening_factor = 1;
-
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     4*coarsening_factor, &pose_observation, &summary);
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     2*coarsening_factor, &pose_observation, &summary);
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     coarsening_factor, &pose_observation, &summary);
+     coarsening_factor, &pose_observation_in_submap, &summary);
 
-  /*
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     1, &pose_observation, &summary);*/
-/*
-  ceres_scan_matcher_->MatchCombined(scan_matcher_pose_estimate_, initial_ceres_pose,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     &pose_observation, &summary);*/
-
-
+  const transform::Rigid3d pose_observation =
+      matching_submap->local_pose * pose_observation_in_submap;
   pose_tracker_->AddPoseObservation(
       time, pose_observation,
       options_.kalman_local_trajectory_builder_options()
@@ -283,16 +253,12 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
   for (int insertion_index : submaps_->insertion_indices()) {
     insertion_submaps.push_back(submaps_->Get(insertion_index));
   }
-//todo(kdaun) check sensor transform as well?
-  //LOG(INFO)<<"pose "<<pose_observation.cast<float>();
- // LOG(INFO)<<"before pose sensor "<<sensor_origin;
+
   for(CombinedRangeData& data : combined_range_data)
   {
-      //LOG(INFO)<<"sensor "<<pose_observation.cast<float>()*data.pose_.cast<float>().translation();
       data.range_data_ = sensor::TransformRangeData(
                   data.range_data_,
                   pose_observation.cast<float>());
-      //data.pose_ = transform::Rigid3d::Translation(pose_observation*sensor_origin.cast<double>());
       data.pose_ = pose_observation*data.pose_;
   }
 

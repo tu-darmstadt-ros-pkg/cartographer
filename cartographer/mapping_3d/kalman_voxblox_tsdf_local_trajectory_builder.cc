@@ -182,39 +182,17 @@ KalmanVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       options_.low_resolution_adaptive_voxel_filter_options());
   const sensor::PointCloud low_resolution_point_cloud_in_tracking =
       low_resolution_adaptive_voxel_filter.Filter(filtered_range_data.returns);
-  /*
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
-                             {{&filtered_point_cloud_in_tracking,
-                               &submaps_->high_resolution_matching_grid()},
-                              {&low_resolution_point_cloud_in_tracking,
-                               &submaps_->low_resolution_matching_grid()}},
-                             &pose_observation, &summary);*/
+
 
   int coarsening_factor = 1;
 
+
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     4*coarsening_factor, &pose_observation, &summary);
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     2*coarsening_factor, &pose_observation, &summary);
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, pose_observation,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
      coarsening_factor, &pose_observation, &summary);
 
-  /*
-  ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     1, &pose_observation, &summary);*/
-/*
-  ceres_scan_matcher_->MatchCombined(scan_matcher_pose_estimate_, initial_ceres_pose,
-     {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
-     submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     &pose_observation, &summary);*/
+
 
 
   pose_tracker_->AddPoseObservation(

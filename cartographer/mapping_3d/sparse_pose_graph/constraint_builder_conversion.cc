@@ -221,7 +221,7 @@ void ConstraintBuilderConversion::ComputeConstraint(
     ceres_scan_matcher_.Match(
         pose_estimate, pose_estimate,
         {{&filtered_point_cloud, submap_scan_matcher->hybrid_grid}},
-                1,1,
+                0.3,1,
         &constraint_transform, &unused_summary);
     //todo(kdaun) params
 

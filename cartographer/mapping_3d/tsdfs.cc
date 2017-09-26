@@ -174,6 +174,8 @@ void TSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracking,
     if (last_submap->num_range_data == options_.num_range_data()) {
       AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
                                    gravity_alignment));
+      LOG(INFO)<<"tsdf origin: "<<range_data_in_tracking.origin.cast<double>();
+      LOG(INFO)<<"tsdf orientation: "<<gravity_alignment.w()<<", "<<gravity_alignment.x()<<", "<<gravity_alignment.y()<<", "<<gravity_alignment.z();
     }
 }
 
@@ -194,8 +196,15 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
         cloudOut.GetMutablePoints().resize(combined_data.range_data_.returns.size());
         for(int index : insertion_indices())
         {
-
+            cloudOut.Clear();
+            cloudOut.GetMutablePoints().resize(combined_data.range_data_.returns.size());
             TSDF* submap = submaps_[index].get();
+            /*  if(index == 1) {
+              LOG(INFO)<<"local pose origin: "<<submap->local_pose.translation();
+              LOG(INFO)<<"local pose orientation: "<<submap->local_pose.rotation().w()<<", "<<submap->local_pose.rotation().x()<<", "<<submap->local_pose.rotation().y()<<", "<<submap->local_pose.rotation().z();
+   }*/
+
+
             const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
                 combined_data.range_data_, submap->local_pose.inverse().cast<float>());
 
@@ -214,7 +223,6 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
             chisel_pose.x() = transformed_sensor_origin.x();
             chisel_pose.y() = transformed_sensor_origin.y();
             chisel_pose.z() = transformed_sensor_origin.z();
-
 
 
 

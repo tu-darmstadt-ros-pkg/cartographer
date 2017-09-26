@@ -139,42 +139,54 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
 {
     CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
     ++num_range_data_;
-    voxblox::Transformation T_G_C;
-    voxblox::Pointcloud points_C;
-    voxblox::Colors colors;
-    points_C.reserve(range_data_in_tracking.returns.size());
-    colors.reserve(range_data_in_tracking.returns.size());
+    for(int index : insertion_indices()) {
+      VoxbloxTSDF* submap = submaps_[index].get();
+      const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
+          range_data_in_tracking, submap->local_pose.inverse().cast<float>());
 
-    for (const Eigen::Vector3f& pt : range_data_in_tracking.returns)
-    {
-        points_C.push_back(voxblox::Point(pt(0),
-                                 pt(1),
-                                 pt(2)));
-        colors.push_back(
-            voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
+      voxblox::Transformation T_G_C;
+      voxblox::Pointcloud points_C;
+      voxblox::Colors colors;
+      points_C.reserve(transformed_range_data.returns.size());
+      colors.reserve(transformed_range_data.returns.size());
+
+      for (const Eigen::Vector3f& pt : transformed_range_data.returns)
+      {
+          points_C.push_back(voxblox::Point(pt(0),
+                                   pt(1),
+                                   pt(2)));
+          colors.push_back(
+              voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
+      }
+
+      T_G_C.getPosition() = world_to_sensor.translation();
+      T_G_C.getRotation().setValues(world_to_sensor.rotation().w(),
+                                    world_to_sensor.rotation().x(),
+                                    world_to_sensor.rotation().y(),
+                                    world_to_sensor.rotation().z());
+
+      //LOG(INFO)<<"T_G_C: "<<T_G_C;
+      for(int insertion_index : insertion_indices())
+      {
+          //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
+          std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
+                  projection_integrators_[insertion_index];
+
+          tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
+
+          /*
+          chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
+          //min and max dist are already filtered in the local trajectory builder
+          chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
+                                           chisel_pose, 0.0f, HUGE_VALF);
+          chisel_tsdf->UpdateMeshes();*/
+      }
     }
 
-    T_G_C.getPosition() = world_to_sensor.translation();
-    T_G_C.getRotation().setValues(world_to_sensor.rotation().w(),
-                                  world_to_sensor.rotation().x(),
-                                  world_to_sensor.rotation().y(),
-                                  world_to_sensor.rotation().z());
 
-    //LOG(INFO)<<"T_G_C: "<<T_G_C;
-    for(int insertion_index : insertion_indices())
-    {
-        //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
-        std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
-                projection_integrators_[insertion_index];
-
-        tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
-
-        /*
-        chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
-        //min and max dist are already filtered in the local trajectory builder
-        chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
-                                         chisel_pose, 0.0f, HUGE_VALF);
-        chisel_tsdf->UpdateMeshes();*/
+    for (const int index : insertion_indices()) {
+      VoxbloxTSDF* submap = submaps_[index].get();
+      ++submap->num_range_data;
     }
 
     ++num_range_data_in_last_submap_;

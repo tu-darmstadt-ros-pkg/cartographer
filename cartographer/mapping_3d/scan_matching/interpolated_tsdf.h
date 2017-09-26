@@ -56,14 +56,9 @@ class InterpolatedTSDF {
   template <typename T>
   T GetSDF(const T& x, const T& y, const T& z, int coarsening_factor) const {
     double x1, y1, z1, x2, y2, z2;
+    ComputeInterpolationDataPoints(x, y, z, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
+
     const auto& chunk_manager = tsdf_->GetChunkManager();
-    chisel::Vec3 origin = chunk_manager.GetOrigin();
-    T x_local = x - T(origin.x());
-    T y_local = y - T(origin.y());
-    T z_local = z - T(origin.z());
-
-    ComputeInterpolationDataPoints(x_local, y_local, z_local, &x1, &y1, &z1, &x2, &y2, &z2, coarsening_factor);
-
     const chisel::DistVoxel* v111 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z1));
     const chisel::DistVoxel* v112 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y1,z2));
     const chisel::DistVoxel* v121 = chunk_manager.GetDistanceVoxel(chisel::Vec3(x1,y2,z1));

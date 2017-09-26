@@ -292,7 +292,7 @@ void Submaps::InsertRangeData(const sensor::RangeData& range_data,
   if (last_submap->num_range_data == options_.num_range_data()) {
     AddSubmap(transform::Rigid3d(range_data.origin.cast<double>(),
                                  gravity_alignment));
-  }
+     }
 }
 
 void Submaps::AddSubmap(const transform::Rigid3d& local_pose) {
