@@ -22,7 +22,6 @@
 
 #include "cartographer/common/ceres_solver_options.h"
 #include "cartographer/common/make_unique.h"
-#include "cartographer/mapping_3d/ceres_pose.h"
 #include "cartographer/mapping_3d/scan_matching/occupied_space_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/rotation_delta_cost_functor.h"
 #include "cartographer/mapping_3d/scan_matching/translation_delta_cost_functor.h"
@@ -83,23 +82,14 @@ CeresScanMatcher::CeresScanMatcher(
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
-void CeresScanMatcher::Match(const transform::Rigid3d& previous_pose,
-                             const transform::Rigid3d& initial_pose_estimate,
-                             const std::vector<PointCloudAndHybridGridPointers>&
-                                 point_clouds_and_hybrid_grids,
-                             transform::Rigid3d* const pose_estimate,
-                             ceres::Solver::Summary* const summary) {
-  ceres::Problem problem;
-  CeresPose ceres_pose(
-      initial_pose_estimate, nullptr /* translation_parameterization */,
-      options_.only_optimize_yaw()
-          ? std::unique_ptr<ceres::LocalParameterization>(
-                common::make_unique<ceres::AutoDiffLocalParameterization<
-                    YawOnlyQuaternionPlus, 4, 1>>())
-          : std::unique_ptr<ceres::LocalParameterization>(
-                common::make_unique<ceres::QuaternionParameterization>()),
-      &problem);
 
+void CeresScanMatcher::setupProblem(const transform::Rigid3d& previous_pose,
+               const transform::Rigid3d& initial_pose_estimate,
+               const std::vector<PointCloudAndHybridGridPointers>&
+                   point_clouds_and_hybrid_grids,
+               CeresPose& ceres_pose,
+               ceres::Problem& problem)
+{
   CHECK_EQ(options_.occupied_space_weight_size(),
            point_clouds_and_hybrid_grids.size());
   for (size_t i = 0; i != point_clouds_and_hybrid_grids.size(); ++i) {
@@ -133,10 +123,45 @@ void CeresScanMatcher::Match(const transform::Rigid3d& previous_pose,
                                          initial_pose_estimate.rotation())),
           nullptr, ceres_pose.rotation());
   }
+}
 
+void CeresScanMatcher::Match(const transform::Rigid3d& previous_pose,
+                             const transform::Rigid3d& initial_pose_estimate,
+                             const std::vector<PointCloudAndHybridGridPointers>&
+                                 point_clouds_and_hybrid_grids,
+                             transform::Rigid3d* const pose_estimate,
+                             ceres::Solver::Summary* const summary) {
+  ceres::Problem problem;
+  CeresPose ceres_pose(initial_pose_estimate, nullptr /* translation_parameterization */,
+                         options_.only_optimize_yaw()
+                             ? std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::AutoDiffLocalParameterization<
+                                       YawOnlyQuaternionPlus, 4, 1>>())
+                             : std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::QuaternionParameterization>()),
+                         &problem);
+  setupProblem(previous_pose, initial_pose_estimate, point_clouds_and_hybrid_grids, ceres_pose, problem);
   ceres::Solve(ceres_solver_options_, &problem, summary);
-
   *pose_estimate = ceres_pose.ToRigid();
+}
+
+void CeresScanMatcher::ComputeGradient(const transform::Rigid3d& previous_pose,
+           const transform::Rigid3d& initial_pose_estimate,
+           const std::vector<PointCloudAndHybridGridPointers>&
+               point_clouds_and_hybrid_grids,
+           std::vector<double>& gradient) {
+  ceres::Problem problem;
+  CeresPose ceres_pose(initial_pose_estimate, nullptr /* translation_parameterization */,
+                         options_.only_optimize_yaw()
+                             ? std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::AutoDiffLocalParameterization<
+                                       YawOnlyQuaternionPlus, 4, 1>>())
+                             : std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::QuaternionParameterization>()),
+                         &problem);
+  setupProblem(previous_pose, initial_pose_estimate, point_clouds_and_hybrid_grids, ceres_pose, problem);
+  problem.Evaluate(ceres::Problem::EvaluateOptions(), NULL, NULL, &gradient, NULL);
+
 }
 
 }  // namespace scan_matching

@@ -22,6 +22,7 @@
 
 #include "Eigen/Core"
 #include "cartographer/common/lua_parameter_dictionary.h"
+#include "cartographer/mapping_3d/ceres_pose.h"
 #include "cartographer/mapping_3d/hybrid_grid.h"
 #include "cartographer/mapping_3d/scan_matching/proto/ceres_scan_matcher_options.pb.h"
 #include "cartographer/sensor/point_cloud.h"
@@ -55,7 +56,21 @@ class CeresScanMatcher {
              transform::Rigid3d* pose_estimate,
              ceres::Solver::Summary* summary);
 
+
+  void ComputeGradient(const transform::Rigid3d& previous_pose,
+             const transform::Rigid3d& initial_pose_estimate,
+             const std::vector<PointCloudAndHybridGridPointers>&
+                 point_clouds_and_hybrid_grids,
+             std::vector<double> &gradient);
+
  private:
+  void setupProblem(const transform::Rigid3d& previous_pose,
+                 const transform::Rigid3d& initial_pose_estimate,
+                 const std::vector<PointCloudAndHybridGridPointers>&
+                     point_clouds_and_hybrid_grids,
+                    CeresPose& ceres_pose,
+                 ceres::Problem& problem);
+
   const proto::CeresScanMatcherOptions options_;
   ceres::Solver::Options ceres_solver_options_;
 };
