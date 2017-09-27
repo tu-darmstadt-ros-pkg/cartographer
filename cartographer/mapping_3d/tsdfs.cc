@@ -199,12 +199,7 @@ void TSDFs::InsertRangeData(std::vector<CombinedRangeData>& combined_range_data,
             cloudOut.Clear();
             cloudOut.GetMutablePoints().resize(combined_data.range_data_.returns.size());
             TSDF* submap = submaps_[index].get();
-            /*  if(index == 1) {
-              LOG(INFO)<<"local pose origin: "<<submap->local_pose.translation();
-              LOG(INFO)<<"local pose orientation: "<<submap->local_pose.rotation().w()<<", "<<submap->local_pose.rotation().x()<<", "<<submap->local_pose.rotation().y()<<", "<<submap->local_pose.rotation().z();
-   }*/
-
-
+            
             const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
                 combined_data.range_data_, submap->local_pose.inverse().cast<float>());
 

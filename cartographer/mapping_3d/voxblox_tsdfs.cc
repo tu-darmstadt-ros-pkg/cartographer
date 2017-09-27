@@ -76,12 +76,6 @@ VoxbloxTSDF::VoxbloxTSDF(const float high_resolution, const float low_resolution
                float max_truncation_distance, Eigen::Vector3i& chunk_size)
     : mapping::Submap(origin),
       max_truncation_distance(max_truncation_distance){
-    chisel::Vec3 tsdf_origin;
-    tsdf_origin.x() = origin.translation().x();
-    tsdf_origin.y() = origin.translation().y();
-    tsdf_origin.z() = origin.translation().z();
-
-
     voxblox::TsdfMap::Config config;
     config.tsdf_voxel_size = static_cast<voxblox::FloatingPoint>(high_resolution);
     //config.tsdf_voxels_per_side = voxels_per_side;
@@ -142,7 +136,7 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
     for(int index : insertion_indices()) {
       VoxbloxTSDF* submap = submaps_[index].get();
       const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
-          range_data_in_tracking, submap->local_pose.inverse().cast<float>());
+          transformed_range_data, submap->local_pose.inverse().cast<float>());
 
       voxblox::Transformation T_G_C;
       voxblox::Pointcloud points_C;
@@ -159,28 +153,17 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
               voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
       }
 
-      T_G_C.getPosition() = world_to_sensor.translation();
-      T_G_C.getRotation().setValues(world_to_sensor.rotation().w(),
-                                    world_to_sensor.rotation().x(),
-                                    world_to_sensor.rotation().y(),
-                                    world_to_sensor.rotation().z());
+      const transform::Rigid3f submap_to_sensor = submap->local_pose.inverse().cast<float>()*world_to_sensor;
+      T_G_C.getPosition() = submap_to_sensor.translation();
+      T_G_C.getRotation().setValues(submap_to_sensor.rotation().w(),
+                                   submap_to_sensor.rotation().x(),
+                                   submap_to_sensor.rotation().y(),
+                                   submap_to_sensor.rotation().z());
 
-      //LOG(INFO)<<"T_G_C: "<<T_G_C;
-      for(int insertion_index : insertion_indices())
-      {
-          //std::shared_ptr<voxblox::TsdfMap> voxblox_tsdf = submaps_[insertion_index]->tsdf;
-          std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
-                  projection_integrators_[insertion_index];
+      std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
+              projection_integrators_[index];
 
-          tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
-
-          /*
-          chisel_tsdf->GetMutableChunkManager().clearIncrementalChanges();
-          //min and max dist are already filtered in the local trajectory builder
-          chisel_tsdf->IntegratePointCloud(projection_integrator, cloudOut,
-                                           chisel_pose, 0.0f, HUGE_VALF);
-          chisel_tsdf->UpdateMeshes();*/
-      }
+      tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
     }
 
 
@@ -297,7 +280,6 @@ std::vector<VoxbloxTSDFs::PixelData> VoxbloxTSDFs::AccumulatePixelData(
 void VoxbloxTSDFs::SubmapToProto(
     int index, const transform::Rigid3d& global_submap_pose,
     mapping::proto::SubmapQuery::Response* const response) const {
-    LOG(WARNING)<<"SubmapToProto is not implemented";
     // Generate an X-ray view through the 'hybrid_grid', aligned to the xy-plane
     // in the global map frame.
     const std::shared_ptr<voxblox::TsdfMap> hybrid_grid = Get(index)->tsdf;

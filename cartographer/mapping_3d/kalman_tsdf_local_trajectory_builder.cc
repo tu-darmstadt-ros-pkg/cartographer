@@ -113,9 +113,9 @@ KalmanTSDFLocalTrajectoryBuilder::AddRangefinderData(
   const sensor::RangeData filtered_range_data = {
     combined_range_data.range_data_.origin,
     sensor::VoxelFiltered(combined_range_data.range_data_.returns,
-                          options_.voxel_filter_size()*0.5),
+                          options_.voxel_filter_size()*1.00),
     sensor::VoxelFiltered(combined_range_data.range_data_.misses,
-                          options_.voxel_filter_size()*0.5)};
+                          options_.voxel_filter_size()*1.00)};
   combined_range_data.range_data_ = filtered_range_data;
 
   accumulated_range_data_with_pose_.push_back(combined_range_data);
@@ -202,15 +202,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   pose_observation.cast<float>())};
 
-
-  const sensor::RangeData insertion_filtered_range_data = {
-      range_data_in_tracking.origin,
-      sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size() * 0.25),
-      sensor::VoxelFiltered(range_data_in_tracking.misses,
-                            options_.voxel_filter_size() * 0.25)};
-
-  return InsertIntoSubmap(time, insertion_filtered_range_data, pose_observation,
+  return InsertIntoSubmap(time, filtered_range_data, pose_observation,
                           covariance_estimate, sensor_origin, combined_range_data);
 }
 
@@ -246,7 +238,7 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
     std::vector<CombinedRangeData>& combined_range_data) {
   if (motion_filter_.IsSimilar(time, pose_observation)) {
     return nullptr;
-  }
+  }/*
   const TSDF* const matching_submap =
       submaps_->Get(submaps_->matching_index());
   std::vector<const TSDF*> insertion_submaps;
@@ -264,7 +256,30 @@ KalmanTSDFLocalTrajectoryBuilder::InsertIntoSubmap(
 
   submaps_->InsertRangeData(
               combined_range_data,
-              pose_tracker_->gravity_orientation());
+              pose_tracker_->gravity_orientation());*/
+  const TSDF* const matching_submap =
+      submaps_->Get(submaps_->matching_index());
+  std::vector<const TSDF*> insertion_submaps;
+  for (int insertion_index : submaps_->insertion_indices()) {
+    insertion_submaps.push_back(submaps_->Get(insertion_index));
+  }
+
+  sensor::RangeData range_data_accumulated;
+  for(CombinedRangeData& data : combined_range_data)
+  {
+      data.range_data_ = sensor::TransformRangeData(
+                  data.range_data_,
+                  pose_observation.cast<float>());
+      range_data_accumulated.returns.insert(range_data_accumulated.returns.end(),
+                                            data.range_data_.returns.begin(),
+                                            data.range_data_.returns.end());
+      data.pose_ = pose_observation*data.pose_;
+  }
+
+  submaps_->InsertRangeData(
+              range_data_accumulated,
+              pose_tracker_->gravity_orientation(),
+              (pose_observation*combined_range_data[0].pose_).translation().cast<float>());
 
   return std::unique_ptr<InsertionResult>(new InsertionResult{
       time, range_data_in_tracking, pose_observation, covariance_estimate,

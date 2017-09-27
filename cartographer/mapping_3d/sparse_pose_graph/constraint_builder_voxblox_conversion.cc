@@ -144,7 +144,7 @@ void ConstraintBuilderVoxbloxConversion::ConstructSubmapScanMatcher(
     const mapping::SubmapId& submap_id,
     const std::vector<mapping::TrajectoryNode>& submap_nodes,
     std::shared_ptr<voxblox::TsdfMap> submap) {
-    /*auto submap_scan_matcher =
+    auto submap_scan_matcher =
         common::make_unique<scan_matching::FastCorrelativeConversionScanMatcher>(
             submap, submap_nodes,
             options_.fast_correlative_scan_matcher_options_3d());
@@ -154,7 +154,7 @@ void ConstraintBuilderVoxbloxConversion::ConstructSubmapScanMatcher(
          submap_queued_work_items_[submap_id]) {
       thread_pool_->Schedule(work_item);
     }
-    submap_queued_work_items_.erase(submap_id);*/ //todo(kdaun) reactivate code
+    submap_queued_work_items_.erase(submap_id);
 }
 
 const ConstraintBuilderVoxbloxConversion::SubmapScanMatcher*
@@ -216,11 +216,11 @@ void ConstraintBuilderVoxbloxConversion::ComputeConstraint(
     // CSM estimate.
     ceres::Solver::Summary unused_summary;
     transform::Rigid3d constraint_transform;
-    /*ceres_scan_matcher_.Match(
+    ceres_scan_matcher_.Match(
         pose_estimate, pose_estimate,
         {{&filtered_point_cloud, submap_scan_matcher->hybrid_grid}},
-                1,1,
-        &constraint_transform, &unused_summary);*/ //todo(kdaun) reactivate
+                0.3,1,
+        &constraint_transform, &unused_summary);
     //todo(kdaun) params
 
     constraint->reset(new OptimizationProblem::Constraint{

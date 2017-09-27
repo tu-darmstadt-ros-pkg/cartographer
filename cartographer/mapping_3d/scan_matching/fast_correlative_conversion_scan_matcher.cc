@@ -79,6 +79,30 @@ class PrecomputationGridStack {
     }
   }
 
+
+  PrecomputationGridStack(
+      const std::shared_ptr<voxblox::TsdfMap>& hybrid_grid,
+      const proto::FastCorrelativeScanMatcherOptions& options) {
+    CHECK_GE(options.branch_and_bound_depth(), 1);
+    CHECK_GE(options.full_resolution_depth(), 1);
+    precomputation_grids_.reserve(options.branch_and_bound_depth());
+    precomputation_grids_.push_back(ConvertToPrecomputationGrid(hybrid_grid));
+    Eigen::Array3i last_width = Eigen::Array3i::Ones();
+    for (int depth = 1; depth != options.branch_and_bound_depth(); ++depth) {
+      const bool half_resolution = depth >= options.full_resolution_depth();
+      const Eigen::Array3i next_width = ((1 << depth) * Eigen::Array3i::Ones());
+      const int full_voxels_per_high_resolution_voxel =
+          1 << std::max(0, depth - options.full_resolution_depth());
+      const Eigen::Array3i shift =
+          (next_width - last_width +
+           (full_voxels_per_high_resolution_voxel - 1)) /
+          full_voxels_per_high_resolution_voxel;
+      precomputation_grids_.push_back(
+          PrecomputeGrid(precomputation_grids_.back(), half_resolution, shift));
+      last_width = next_width;
+    }
+  }
+
   const PrecomputationGrid& Get(int depth) const {
     return precomputation_grids_.at(depth);
   }
@@ -105,6 +129,48 @@ FastCorrelativeConversionScanMatcher::FastCorrelativeConversionScanMatcher(const
     : options_(options),
       resolution_(hybrid_grid->GetChunkManager().GetResolution()),
       origin_(hybrid_grid->GetChunkManager().GetOrigin()),
+      width_in_voxels_(ComputeVoxelWidth(hybrid_grid)),
+      precomputation_grid_stack_(
+          common::make_unique<PrecomputationGridStack>(hybrid_grid, options)),
+      rotational_scan_matcher_(nodes, options_.rotational_histogram_size()) {}
+
+int ComputeVoxelWidth(std::shared_ptr<voxblox::TsdfMap> hybrid_grid){
+
+  Eigen::Vector3f volume_max({-HUGE_VALF, -HUGE_VALF, -HUGE_VALF});
+  Eigen::Vector3f volume_min({HUGE_VALF, HUGE_VALF, HUGE_VALF});
+
+  voxblox::BlockIndexList blocks;
+  hybrid_grid->getTsdfLayer().getAllAllocatedBlocks(&blocks);
+  // Cache layer settings.
+  size_t vps = hybrid_grid->getTsdfLayer().voxels_per_side();
+  size_t num_voxels_per_block = vps * vps * vps;
+
+  for (const voxblox::BlockIndex& index : blocks) {
+    // Iterate over all voxels in said blocks.
+    const voxblox::Block<voxblox::TsdfVoxel>& block = hybrid_grid->getTsdfLayer().getBlockByIndex(index);
+
+    for (size_t linear_index = 0; linear_index < num_voxels_per_block;
+         ++linear_index) {
+      const voxblox::Point& coord = block.computeCoordinatesFromLinearIndex(linear_index);
+      const Eigen::Vector3f& cell_center_local =  Eigen::Vector3f(coord);
+      volume_max = volume_max.cwiseMax(cell_center_local);
+      volume_min = volume_min.cwiseMin(cell_center_local);
+    }
+  }
+  Eigen::Vector3f volume_size = volume_max - volume_min;
+  Eigen::Vector3f volume_size_in_voxels =
+          volume_size*(1./hybrid_grid->getTsdfLayer().voxel_size());
+  int width_in_voxels_ =
+          std::ceil(std::max(volume_size_in_voxels.x(),volume_size_in_voxels.y()));
+  return int(width_in_voxels_);
+}
+
+FastCorrelativeConversionScanMatcher::FastCorrelativeConversionScanMatcher(const std::shared_ptr<voxblox::TsdfMap> hybrid_grid,
+    const std::vector<mapping::TrajectoryNode>& nodes,
+    const proto::FastCorrelativeScanMatcherOptions& options)
+    : options_(options),
+      resolution_(hybrid_grid->getTsdfLayer().voxel_size()),
+      origin_(Eigen::Vector3f({0,0,0})), //todo(kdaun) remove origing attribute
       width_in_voxels_(ComputeVoxelWidth(hybrid_grid)),
       precomputation_grid_stack_(
           common::make_unique<PrecomputationGridStack>(hybrid_grid, options)),

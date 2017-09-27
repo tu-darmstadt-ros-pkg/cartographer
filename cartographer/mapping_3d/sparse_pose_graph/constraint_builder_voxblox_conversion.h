@@ -33,7 +33,7 @@
 #include "cartographer/common/thread_pool.h"
 #include "cartographer/mapping/trajectory_connectivity.h"
 #include "cartographer/mapping/trajectory_node.h"
-#include "cartographer/mapping_3d/scan_matching/ceres_tsdf_scan_matcher.h"
+#include "cartographer/mapping_3d/scan_matching/ceres_voxblox_tsdf_scan_matcher.h"
 #include "cartographer/mapping_3d/scan_matching/fast_correlative_conversion_scan_matcher.h"
 #include "cartographer/mapping_3d/scan_matching/fast_correlative_voxblox_conversion_scan_matcher.h"
 #include "cartographer/mapping_3d/sparse_pose_graph/optimization_problem.h"
@@ -110,7 +110,7 @@ class ConstraintBuilderVoxbloxConversion {
  private:
   struct SubmapScanMatcher {
     std::shared_ptr<voxblox::TsdfMap> hybrid_grid;
-    std::unique_ptr<scan_matching::FastCorrelativeVoxbloxConversionScanMatcher>
+    std::unique_ptr<scan_matching::FastCorrelativeConversionScanMatcher>
         fast_correlative_scan_matcher;
   };
 
@@ -181,7 +181,7 @@ class ConstraintBuilderVoxbloxConversion {
 
   common::FixedRatioSampler sampler_;
   const sensor::AdaptiveVoxelFilter adaptive_voxel_filter_;
-  scan_matching::CeresTSDFScanMatcher ceres_scan_matcher_;
+  scan_matching::CeresVoxbloxTSDFScanMatcher ceres_scan_matcher_;
 
   // Histogram of scan matcher scores.
   common::Histogram score_histogram_ GUARDED_BY(mutex_);
