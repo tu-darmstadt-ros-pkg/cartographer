@@ -131,52 +131,52 @@ void VoxbloxTSDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
                             const Eigen::Quaterniond& gravity_alignment,
                             const transform::Rigid3f &world_to_sensor)
 {
-    CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
-    ++num_range_data_;
-    for(int index : insertion_indices()) {
-      VoxbloxTSDF* submap = submaps_[index].get();
-      const sensor::RangeData transformed_range_data = sensor::TransformRangeData(
-          transformed_range_data, submap->local_pose.inverse().cast<float>());
+  CHECK_LT(num_range_data_, std::numeric_limits<int>::max());
+  ++num_range_data_;
+  for(int index : insertion_indices()) {
+    VoxbloxTSDF* submap = submaps_[index].get();
+    const sensor::RangeData transformed_range_data = range_data_in_tracking;/*sensor::TransformRangeData(
+        range_data_in_tracking, submap->local_pose.inverse().cast<float>());*/
 
-      voxblox::Transformation T_G_C;
-      voxblox::Pointcloud points_C;
-      voxblox::Colors colors;
-      points_C.reserve(transformed_range_data.returns.size());
-      colors.reserve(transformed_range_data.returns.size());
+    voxblox::Transformation T_G_C;
+    voxblox::Pointcloud points_C;
+    voxblox::Colors colors;
+    points_C.reserve(transformed_range_data.returns.size());
+    colors.reserve(transformed_range_data.returns.size());
 
-      for (const Eigen::Vector3f& pt : transformed_range_data.returns)
-      {
-          points_C.push_back(voxblox::Point(pt(0),
-                                   pt(1),
-                                   pt(2)));
-          colors.push_back(
-              voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
-      }
-
-      const transform::Rigid3f submap_to_sensor = submap->local_pose.inverse().cast<float>()*world_to_sensor;
-      T_G_C.getPosition() = submap_to_sensor.translation();
-      T_G_C.getRotation().setValues(submap_to_sensor.rotation().w(),
-                                   submap_to_sensor.rotation().x(),
-                                   submap_to_sensor.rotation().y(),
-                                   submap_to_sensor.rotation().z());
-
-      std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
-              projection_integrators_[index];
-
-      tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
+    for (const Eigen::Vector3f& pt : transformed_range_data.returns)
+    {
+      points_C.push_back(voxblox::Point(pt(0),
+                                        pt(1),
+                                        pt(2)));
+      colors.push_back(
+            voxblox::Color(128, 128, 128, 128)); //todo(kdaun) check where colors should come from
     }
 
+    const transform::Rigid3f submap_to_sensor = submap->local_pose.inverse().cast<float>() * world_to_sensor;
+    T_G_C.getPosition() = submap_to_sensor.translation();
+    T_G_C.getRotation().setValues(submap_to_sensor.rotation().w(),
+                                  submap_to_sensor.rotation().x(),
+                                  submap_to_sensor.rotation().y(),
+                                  submap_to_sensor.rotation().z());
 
-    for (const int index : insertion_indices()) {
-      VoxbloxTSDF* submap = submaps_[index].get();
-      ++submap->num_range_data;
-    }
+    std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_ =
+        projection_integrators_[index];
 
-    ++num_range_data_in_last_submap_;
-    if (num_range_data_in_last_submap_ == options_.num_range_data()) {
-      AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
-                                 gravity_alignment));
-    }
+    tsdf_integrator_->integratePointCloud(T_G_C, points_C, colors);
+  }
+
+
+  for (const int index : insertion_indices()) {
+    VoxbloxTSDF* submap = submaps_[index].get();
+    ++submap->num_range_data;
+  }
+
+  ++num_range_data_in_last_submap_;
+  if (num_range_data_in_last_submap_ == options_.num_range_data()) {
+    AddTSDF(transform::Rigid3d(range_data_in_tracking.origin.cast<double>(),
+                               gravity_alignment));
+  }
 }
 
 
