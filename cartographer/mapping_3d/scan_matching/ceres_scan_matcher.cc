@@ -88,8 +88,7 @@ void CeresScanMatcher::setupProblem(const transform::Rigid3d& previous_pose,
                const std::vector<PointCloudAndHybridGridPointers>&
                    point_clouds_and_hybrid_grids,
                CeresPose& ceres_pose,
-               ceres::Problem& problem)
-{
+               ceres::Problem& problem) {
   CHECK_EQ(options_.occupied_space_weight_size(),
            point_clouds_and_hybrid_grids.size());
   for (size_t i = 0; i != point_clouds_and_hybrid_grids.size(); ++i) {
@@ -145,7 +144,7 @@ void CeresScanMatcher::Match(const transform::Rigid3d& previous_pose,
   *pose_estimate = ceres_pose.ToRigid();
 }
 
-void CeresScanMatcher::ComputeGradient(const transform::Rigid3d& previous_pose,
+void CeresScanMatcher::EvaluateGradient(const transform::Rigid3d& previous_pose,
            const transform::Rigid3d& initial_pose_estimate,
            const std::vector<PointCloudAndHybridGridPointers>&
                point_clouds_and_hybrid_grids,
@@ -161,7 +160,6 @@ void CeresScanMatcher::ComputeGradient(const transform::Rigid3d& previous_pose,
                          &problem);
   setupProblem(previous_pose, initial_pose_estimate, point_clouds_and_hybrid_grids, ceres_pose, problem);
   problem.Evaluate(ceres::Problem::EvaluateOptions(), NULL, NULL, &gradient, NULL);
-
 }
 
 }  // namespace scan_matching

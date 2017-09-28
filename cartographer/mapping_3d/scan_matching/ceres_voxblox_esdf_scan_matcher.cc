@@ -85,29 +85,13 @@ CeresVoxbloxESDFScanMatcher::CeresVoxbloxESDFScanMatcher(
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
-void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
-                             const transform::Rigid3d& initial_pose_estimate,
-                             const std::vector<PointCloudAndVoxbloxESDFPointers>&
-                                 point_clouds_and_tsdfs,
-                             float max_truncation_distance,
-                             int coarsening_factor,
-                             transform::Rigid3d* const pose_estimate,
-                             ceres::Solver::Summary* const summary) {
-  ceres::Problem problem;
-  CeresPose ceres_pose(
-      initial_pose_estimate, nullptr /* translation_parameterization */,
-      options_.only_optimize_yaw()
-          ? std::unique_ptr<ceres::LocalParameterization>(
-                common::make_unique<ceres::AutoDiffLocalParameterization<
-                    YawOnlyQuaternionPlus, 4, 1>>())
-          : std::unique_ptr<ceres::LocalParameterization>(
-                common::make_unique<ceres::QuaternionParameterization>()),
-      &problem);
-
-  //CHECK_EQ(options_.occupied_space_weight_size(),
-  //         point_clouds_and_tsdfs.size()); todo reenable
-
-  // LOG(INFO) << "point_clouds_and_hybrid_grids.size() '" << point_clouds_and_tsdfs.size();
+void CeresVoxbloxESDFScanMatcher::setupProblem(const transform::Rigid3d& previous_pose,
+               const transform::Rigid3d& initial_pose_estimate,
+               const std::vector<PointCloudAndVoxbloxESDFPointers>&
+                   point_clouds_and_tsdfs,
+               float max_truncation_distance,
+               CeresPose& ceres_pose,
+               ceres::Problem& problem) {
   for (size_t i = 0; i != point_clouds_and_tsdfs.size(); ++i) {
     CHECK_GT(options_.occupied_space_weight(i), 0.);
     const sensor::PointCloud& point_cloud =
@@ -119,7 +103,7 @@ void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
             new VoxbloxESDFOccupiedSpaceCostFunctor(
               options_.occupied_space_weight(i) /
               std::sqrt(static_cast<double>(point_cloud.size())),
-              point_cloud, tsdf, coarsening_factor, max_truncation_distance),
+              point_cloud, tsdf, 1, max_truncation_distance),
             point_cloud.size()),
           nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }
@@ -139,16 +123,14 @@ void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
                                          initial_pose_estimate.rotation())),
           nullptr, ceres_pose.rotation());
   }
-  ceres::Solve(ceres_solver_options_, &problem, summary);
-
-  *pose_estimate = ceres_pose.ToRigid();
 }
 
-void CeresVoxbloxESDFScanMatcher::MatchCombined(const transform::Rigid3d& previous_pose,
+void CeresVoxbloxESDFScanMatcher::Match(const transform::Rigid3d& previous_pose,
                              const transform::Rigid3d& initial_pose_estimate,
                              const std::vector<PointCloudAndVoxbloxESDFPointers>&
                                  point_clouds_and_tsdfs,
                              float max_truncation_distance,
+                             int coarsening_factor,
                              transform::Rigid3d* const pose_estimate,
                              ceres::Solver::Summary* const summary) {
   ceres::Problem problem;
@@ -161,52 +143,34 @@ void CeresVoxbloxESDFScanMatcher::MatchCombined(const transform::Rigid3d& previo
           : std::unique_ptr<ceres::LocalParameterization>(
                 common::make_unique<ceres::QuaternionParameterization>()),
       &problem);
-
-  //CHECK_EQ(options_.occupied_space_weight_size(),
-  //         point_clouds_and_tsdfs.size()); todo reenable
-
- // LOG(INFO) << "point_clouds_and_hybrid_grids.size() '" << point_clouds_and_tsdfs.size();
-  for (size_t i = 0; i != point_clouds_and_tsdfs.size(); ++i) {
-    CHECK_GT(options_.occupied_space_weight(i), 0.);
-    const sensor::PointCloud& point_cloud =
-        *point_clouds_and_tsdfs[i].first;
-    const std::shared_ptr<voxblox::EsdfMap> tsdf = point_clouds_and_tsdfs[i].second;
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
-                                        ceres::DYNAMIC, 3, 4>(
-            new VoxbloxESDFOccupiedSpaceCostFunctor(
-                options_.occupied_space_weight(i) /
-                    std::sqrt(static_cast<double>(point_cloud.size())),
-                point_cloud, tsdf, 1, max_truncation_distance),
-            point_cloud.size()),
-        nullptr, ceres_pose.translation(), ceres_pose.rotation());
-    problem.AddResidualBlock(
-        new ceres::AutoDiffCostFunction<VoxbloxESDFOccupiedSpaceCostFunctor,
-                                        ceres::DYNAMIC, 3, 4>(
-            new VoxbloxESDFOccupiedSpaceCostFunctor(
-                options_.occupied_space_weight(i+1) /
-                    std::sqrt(static_cast<double>(point_cloud.size())),
-                point_cloud, tsdf, 4, max_truncation_distance),
-            point_cloud.size()),
-        nullptr, ceres_pose.translation(), ceres_pose.rotation());
-  }
-  CHECK_GT(options_.translation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<TranslationDeltaCostFunctor, 3, 3>(
-          new TranslationDeltaCostFunctor(options_.translation_weight(),
-                                          previous_pose)),
-      nullptr, ceres_pose.translation());
-  CHECK_GT(options_.rotation_weight(), 0.);
-  problem.AddResidualBlock(
-      new ceres::AutoDiffCostFunction<RotationDeltaCostFunctor, 3, 4>(
-          new RotationDeltaCostFunctor(options_.rotation_weight(),
-                                       initial_pose_estimate.rotation())),
-      nullptr, ceres_pose.rotation());
-
+  setupProblem(previous_pose, initial_pose_estimate, point_clouds_and_tsdfs, max_truncation_distance, ceres_pose, problem);
   ceres::Solve(ceres_solver_options_, &problem, summary);
 
   *pose_estimate = ceres_pose.ToRigid();
 }
+
+
+void CeresVoxbloxESDFScanMatcher::EvaluateGradient(const transform::Rigid3d& previous_pose,
+           const transform::Rigid3d& initial_pose_estimate,
+           const std::vector<PointCloudAndVoxbloxESDFPointers>&
+               point_clouds_and_tsdfs,
+           float max_truncation_distance,
+           std::vector<double> &gradient) {
+  ceres::Problem problem;
+  CeresPose ceres_pose(initial_pose_estimate, nullptr /* translation_parameterization */,
+                         options_.only_optimize_yaw()
+                             ? std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::AutoDiffLocalParameterization<
+                                       YawOnlyQuaternionPlus, 4, 1>>())
+                             : std::unique_ptr<ceres::LocalParameterization>(
+                                   common::make_unique<ceres::QuaternionParameterization>()),
+                         &problem);
+  setupProblem(previous_pose, initial_pose_estimate, point_clouds_and_tsdfs, max_truncation_distance, ceres_pose, problem);
+  problem.Evaluate(ceres::Problem::EvaluateOptions(), NULL, NULL, &gradient, NULL);
+}
+
+
+
 
 }  // namespace scan_matching
 }  // namespace mapping_3d

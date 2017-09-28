@@ -183,7 +183,7 @@ KalmanTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   ceres_scan_matcher_->Match(scan_matcher_pose_estimate_, initial_ceres_pose,
      {{&filtered_point_cloud_in_tracking, submaps()->Get(submaps()->matching_index())->tsdf}},
      submaps()->Get(submaps()->matching_index())->max_truncation_distance,
-     coarsening_factor, &pose_observation_in_submap, &summary);
+     &pose_observation_in_submap, &summary);
 
   const transform::Rigid3d pose_observation =
       matching_submap->local_pose * pose_observation_in_submap;

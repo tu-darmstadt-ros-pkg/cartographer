@@ -56,8 +56,7 @@ class CeresScanMatcher {
              transform::Rigid3d* pose_estimate,
              ceres::Solver::Summary* summary);
 
-
-  void ComputeGradient(const transform::Rigid3d& previous_pose,
+  void EvaluateGradient(const transform::Rigid3d& previous_pose,
              const transform::Rigid3d& initial_pose_estimate,
              const std::vector<PointCloudAndHybridGridPointers>&
                  point_clouds_and_hybrid_grids,
