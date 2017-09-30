@@ -18,7 +18,7 @@
 #define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_INTERPOLATED_TSDF_H_
 
 #include <cmath>
-
+#include <ceres/ceres.h>
 #include <open_chisel/Chisel.h>
 
 namespace cartographer {
@@ -38,8 +38,12 @@ namespace scan_matching {
 class InterpolatedTSDF {
  public:
   explicit InterpolatedTSDF(const chisel::ChiselConstPtr<chisel::DistVoxel> tsdf,
-                            float max_truncation_distance)
-      : tsdf_(tsdf), max_truncation_distance_(max_truncation_distance) {}
+                            float max_truncation_distance,
+                            bool use_cubic_interpolation = true,
+                            bool use_boundary_extrapolation = true)
+      : tsdf_(tsdf), max_truncation_distance_(max_truncation_distance),
+        use_cubic_interpolation_(use_cubic_interpolation),
+        use_boundary_extrapolation_(use_boundary_extrapolation) {}
 
   InterpolatedTSDF(const InterpolatedTSDF&) = delete;
   InterpolatedTSDF& operator=(const InterpolatedTSDF&) = delete;
@@ -131,29 +135,41 @@ class InterpolatedTSDF {
     if(num_invalid_voxel > 0)
     {
       double signed_max_tsdf = summed_valid_sdf < 0 ? - max_truncation_distance_ : max_truncation_distance_;
-      if(std::isnan(q111)) {
-        q111 = signed_max_tsdf;
+      if(use_boundary_extrapolation_) {
+        if(std::isnan(q111)) {
+          q111 = signed_max_tsdf;
+        }
+        if(std::isnan(q112)) {
+          q112 = signed_max_tsdf;
+        }
+        if(std::isnan(q121)) {
+          q121 = signed_max_tsdf;
+        }
+        if(std::isnan(q122)) {
+          q122 = signed_max_tsdf;
+        }
+        if(std::isnan(q211)) {
+          q211 = signed_max_tsdf;
+        }
+        if(std::isnan(q212)) {
+          q212 = signed_max_tsdf;
+        }
+        if(std::isnan(q221)) {
+          q221 = signed_max_tsdf;
+        }
+        if(std::isnan(q222)) {
+          q222 = signed_max_tsdf;
+        }
       }
-      if(std::isnan(q112)) {
-        q112 = signed_max_tsdf;
-      }
-      if(std::isnan(q121)) {
-        q121 = signed_max_tsdf;
-      }
-      if(std::isnan(q122)) {
-        q122 = signed_max_tsdf;
-      }
-      if(std::isnan(q211)) {
-        q211 = signed_max_tsdf;
-      }
-      if(std::isnan(q212)) {
-        q212 = signed_max_tsdf;
-      }
-      if(std::isnan(q221)) {
-        q221 = signed_max_tsdf;
-      }
-      if(std::isnan(q222)) {
-        q222 = signed_max_tsdf;
+      else {
+        q111 = max_truncation_distance_;
+        q112 = max_truncation_distance_;
+        q121 = max_truncation_distance_;
+        q122 = max_truncation_distance_;
+        q211 = max_truncation_distance_;
+        q212 = max_truncation_distance_;
+        q221 = max_truncation_distance_;
+        q222 = max_truncation_distance_;
       }
     }
 
@@ -161,32 +177,46 @@ class InterpolatedTSDF {
     const T normalized_y = (y - y1) / (y2 - y1);
     const T normalized_z = (z - z1) / (z2 - z1);
 
-    // Compute pow(..., 2) and pow(..., 3). Using pow() here is very expensive.
-    const T normalized_xx = normalized_x * normalized_x;
-    const T normalized_xxx = normalized_x * normalized_xx;
-    const T normalized_yy = normalized_y * normalized_y;
-    const T normalized_yyy = normalized_y * normalized_yy;
-    const T normalized_zz = normalized_z * normalized_z;
-    const T normalized_zzz = normalized_z * normalized_zz;
+    if(use_cubic_interpolation_) {
+      // Compute pow(..., 2) and pow(..., 3). Using pow() here is very expensive.
+      const T normalized_xx = normalized_x * normalized_x;
+      const T normalized_xxx = normalized_x * normalized_xx;
+      const T normalized_yy = normalized_y * normalized_y;
+      const T normalized_yyy = normalized_y * normalized_yy;
+      const T normalized_zz = normalized_z * normalized_z;
+      const T normalized_zzz = normalized_z * normalized_zz;
 
-    // We first interpolate in z, then y, then x. All 7 times this uses the same
-    // scheme: A * (2t^3 - 3t^2 + 1) + B * (-2t^3 + 3t^2).
-    // The first polynomial is 1 at t=0, 0 at t=1, the second polynomial is 0
-    // at t=0, 1 at t=1. Both polynomials have derivative zero at t=0 and t=1.
-    const T q11 = (q111 - q112) * normalized_zzz * 2. +
-                  (q112 - q111) * normalized_zz * 3. + q111;
-    const T q12 = (q121 - q122) * normalized_zzz * 2. +
-                  (q122 - q121) * normalized_zz * 3. + q121;
-    const T q21 = (q211 - q212) * normalized_zzz * 2. +
-                  (q212 - q211) * normalized_zz * 3. + q211;
-    const T q22 = (q221 - q222) * normalized_zzz * 2. +
-                  (q222 - q221) * normalized_zz * 3. + q221;
-    const T q1 = (q11 - q12) * normalized_yyy * 2. +
-                 (q12 - q11) * normalized_yy * 3. + q11;
-    const T q2 = (q21 - q22) * normalized_yyy * 2. +
-                 (q22 - q21) * normalized_yy * 3. + q21;
-    return (q1 - q2) * normalized_xxx * 2. + (q2 - q1) * normalized_xx * 3. +
-           q1;
+      // We first interpolate in z, then y, then x. All 7 times this uses the same
+      // scheme: A * (2t^3 - 3t^2 + 1) + B * (-2t^3 + 3t^2).
+      // The first polynomial is 1 at t=0, 0 at t=1, the second polynomial is 0
+      // at t=0, 1 at t=1. Both polynomials have derivative zero at t=0 and t=1.
+      const T q11 = (q111 - q112) * normalized_zzz * 2. +
+          (q112 - q111) * normalized_zz * 3. + q111;
+      const T q12 = (q121 - q122) * normalized_zzz * 2. +
+          (q122 - q121) * normalized_zz * 3. + q121;
+      const T q21 = (q211 - q212) * normalized_zzz * 2. +
+          (q212 - q211) * normalized_zz * 3. + q211;
+      const T q22 = (q221 - q222) * normalized_zzz * 2. +
+          (q222 - q221) * normalized_zz * 3. + q221;
+      const T q1 = (q11 - q12) * normalized_yyy * 2. +
+          (q12 - q11) * normalized_yy * 3. + q11;
+      const T q2 = (q21 - q22) * normalized_yyy * 2. +
+          (q22 - q21) * normalized_yy * 3. + q21;
+      return (q1 - q2) * normalized_xxx * 2. + (q2 - q1) * normalized_xx * 3. +
+          q1;
+    }
+    else { //trilinear interpolation https://en.wikipedia.org/wiki/Trilinear_interpolation
+      const T c00 = q111 * (T(1.0) - normalized_x) + q211 * normalized_x;
+      const T c01 = q112 * (T(1.0) - normalized_x) + q212 * normalized_x;
+      const T c10 = q121 * (T(1.0) - normalized_x) + q221 * normalized_x;
+      const T c11 = q122 * (T(1.0) - normalized_x) + q222 * normalized_x;
+
+      const T c0 = c00 * (T(1.0) - normalized_y) + c10 * normalized_y;
+      const T c1 = c01 * (T(1.0) - normalized_y) + c11 * normalized_y;
+
+      const T c = c0 * (T(1.0) - normalized_z) + c1 * normalized_z;
+      return c;
+    }
   }
 
   chisel::ChiselConstPtr<chisel::DistVoxel> getTSDF() const {
@@ -258,6 +288,8 @@ class InterpolatedTSDF {
 
   chisel::ChiselConstPtr<chisel::DistVoxel> tsdf_;
   float max_truncation_distance_;
+  const bool use_cubic_interpolation_;
+  const bool use_boundary_extrapolation_;
 };
 
 }  // namespace scan_matching
