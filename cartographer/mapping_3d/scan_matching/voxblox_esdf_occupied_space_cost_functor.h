@@ -38,11 +38,13 @@ class VoxbloxESDFOccupiedSpaceCostFunctor {
   VoxbloxESDFOccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
                            std::shared_ptr<voxblox::EsdfMap> tsdf,
-                           int coarsening_factor, float max_truncation_distance)
+                           int coarsening_factor, float max_truncation_distance,
+                           bool use_cubic_interpolation = true,
+                           bool use_boundary_extrapolation = true)
       : scaling_factor_(scaling_factor),
         coarsening_factor_(coarsening_factor),
         point_cloud_(point_cloud),
-        interpolated_grid_(tsdf, max_truncation_distance) {}
+        interpolated_grid_(tsdf, max_truncation_distance, use_cubic_interpolation, use_boundary_extrapolation) {}
 
   VoxbloxESDFOccupiedSpaceCostFunctor(const VoxbloxESDFOccupiedSpaceCostFunctor&) = delete;
   VoxbloxESDFOccupiedSpaceCostFunctor& operator=(const VoxbloxESDFOccupiedSpaceCostFunctor&) = delete;

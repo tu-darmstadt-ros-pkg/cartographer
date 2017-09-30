@@ -44,7 +44,9 @@ using PointCloudAndTSDFPointers =
 // This scan matcher uses Ceres to align scans with an existing map.
 class CeresTSDFScanMatcher {
  public:
-  explicit CeresTSDFScanMatcher(const proto::CeresScanMatcherOptions& options);
+  explicit CeresTSDFScanMatcher(const proto::CeresScanMatcherOptions& options,
+                                bool use_cubic_interpolation = true,
+                                bool use_boundary_extrapolation = true);
 
   CeresTSDFScanMatcher(const CeresTSDFScanMatcher&) = delete;
   CeresTSDFScanMatcher& operator=(const CeresTSDFScanMatcher&) = delete;
@@ -78,6 +80,8 @@ class CeresTSDFScanMatcher {
 
   const proto::CeresScanMatcherOptions options_;
   ceres::Solver::Options ceres_solver_options_;
+  const bool use_cubic_interpolation_;
+  const bool use_boundary_extrapolation_;
 };
 
 }  // namespace scan_matching

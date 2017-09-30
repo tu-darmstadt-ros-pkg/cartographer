@@ -77,11 +77,12 @@ proto::CeresScanMatcherOptions CreateCeresVoxbloxTSDFScanMatcherOptions(
   return options;
 }
 
-CeresVoxbloxTSDFScanMatcher::CeresVoxbloxTSDFScanMatcher(
-    const proto::CeresScanMatcherOptions& options)
+CeresVoxbloxTSDFScanMatcher::CeresVoxbloxTSDFScanMatcher(const proto::CeresScanMatcherOptions& options, bool use_cubic_interpolation, bool use_boundary_extrapolation)
     : options_(options),
       ceres_solver_options_(
-          common::CreateCeresSolverOptions(options.ceres_solver_options())) {
+          common::CreateCeresSolverOptions(options.ceres_solver_options())),
+      use_cubic_interpolation_(use_cubic_interpolation),
+      use_boundary_extrapolation_(use_boundary_extrapolation) {
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
@@ -103,7 +104,7 @@ void CeresVoxbloxTSDFScanMatcher::setupProblem(const transform::Rigid3d& previou
             new VoxbloxTSDFOccupiedSpaceCostFunctor(
               options_.occupied_space_weight(i) /
               std::sqrt(static_cast<double>(point_cloud.size())),
-              point_cloud, tsdf, 1, max_truncation_distance),
+              point_cloud, tsdf, 1, max_truncation_distance, use_cubic_interpolation_, use_boundary_extrapolation_),
             point_cloud.size()),
           nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }

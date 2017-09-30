@@ -74,11 +74,11 @@ proto::CeresScanMatcherOptions CreateCeresScanMatcherOptions(
   return options;
 }
 
-CeresScanMatcher::CeresScanMatcher(
-    const proto::CeresScanMatcherOptions& options)
+CeresScanMatcher::CeresScanMatcher(const proto::CeresScanMatcherOptions& options, bool use_cubic_interpolation)
     : options_(options),
       ceres_solver_options_(
-          common::CreateCeresSolverOptions(options.ceres_solver_options())) {
+          common::CreateCeresSolverOptions(options.ceres_solver_options())),
+      use_cubic_interpolation_(use_cubic_interpolation) {
   ceres_solver_options_.linear_solver_type = ceres::DENSE_QR;
 }
 
@@ -102,7 +102,7 @@ void CeresScanMatcher::setupProblem(const transform::Rigid3d& previous_pose,
             new OccupiedSpaceCostFunctor(
                 options_.occupied_space_weight(i) /
                     std::sqrt(static_cast<double>(point_cloud.size())),
-                point_cloud, hybrid_grid),
+                point_cloud, hybrid_grid, use_cubic_interpolation_),
             point_cloud.size()),
         nullptr, ceres_pose.translation(), ceres_pose.rotation());
   }

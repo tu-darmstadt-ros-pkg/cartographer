@@ -41,7 +41,8 @@ using PointCloudAndHybridGridPointers =
 // This scan matcher uses Ceres to align scans with an existing map.
 class CeresScanMatcher {
  public:
-  explicit CeresScanMatcher(const proto::CeresScanMatcherOptions& options);
+  explicit CeresScanMatcher(const proto::CeresScanMatcherOptions& options,
+                            bool use_cubic_interpolation = true);
 
   CeresScanMatcher(const CeresScanMatcher&) = delete;
   CeresScanMatcher& operator=(const CeresScanMatcher&) = delete;
@@ -72,6 +73,7 @@ class CeresScanMatcher {
 
   const proto::CeresScanMatcherOptions options_;
   ceres::Solver::Options ceres_solver_options_;
+  const bool use_cubic_interpolation_;
 };
 
 }  // namespace scan_matching

@@ -37,10 +37,11 @@ class OccupiedSpaceCostFunctor {
   // add to all poses, and point cloud.
   OccupiedSpaceCostFunctor(const double scaling_factor,
                            const sensor::PointCloud& point_cloud,
-                           const HybridGrid& hybrid_grid)
+                           const HybridGrid& hybrid_grid,
+                           bool use_cubic_interpolation = true)
       : scaling_factor_(scaling_factor),
         point_cloud_(point_cloud),
-        interpolated_grid_(hybrid_grid) {}
+        interpolated_grid_(hybrid_grid, use_cubic_interpolation) {}
 
   OccupiedSpaceCostFunctor(const OccupiedSpaceCostFunctor&) = delete;
   OccupiedSpaceCostFunctor& operator=(const OccupiedSpaceCostFunctor&) = delete;
