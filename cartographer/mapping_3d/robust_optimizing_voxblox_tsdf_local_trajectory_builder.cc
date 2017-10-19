@@ -185,6 +185,8 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddRangefinderData(
       low_resolution_adaptive_voxel_filter.Filter(point_cloud);
   imu_tracker_->Advance(time);
   if (batches_.empty()) {
+    LOG(INFO)<<"vtsdf orientation:"<<imu_tracker_->orientation().w()<<" "<<imu_tracker_->orientation().x();
+
     // First rangefinder data ever. Initialize to the origin.
     double imu_initial_delay = options_.optimizing_local_trajectory_builder_options().use_imu_time_calibration() ?
           options_.optimizing_local_trajectory_builder_options().imu_initial_delay() : 0.0;
@@ -251,12 +253,14 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   }
 
   ceres::Problem problem;
+  const VoxbloxTSDF* const matching_submap =
+      submaps_->Get(submaps_->matching_index());
  /* const TSDF* const matching_submap =
       submaps_->Get(submaps_->matching_index());*/ //todo(kdaun) reenable
   // We transform the states in 'batches_' in place to be in the submap frame as
   // expected by the OccupiedSpaceCostFunctor. This is reverted after solving
   // the optimization problem.
- // TransformStates(matching_submap->local_pose.inverse()); //todo(kdaun) reenable
+  TransformStates(matching_submap->local_pose.inverse());
   for (size_t i = 0; i < batches_.size(); ++i) {
     Batch& batch = batches_[i];
 
@@ -270,7 +274,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                         batch.high_resolution_filtered_points.size())),
                 batch.high_resolution_filtered_points,
                 submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
-                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance, false, true),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
@@ -284,7 +288,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
                 submaps_->GetVoxbloxTSDFPtr(submaps_->matching_index()), 1.0,
-                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance, false, true),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
@@ -292,7 +296,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
       problem.SetParameterBlockConstant(batch.state.translation.data());
       problem.SetParameterBlockConstant(batch.state.rotation.data());
       problem.AddParameterBlock(batch.state.velocity.data(), 3);
-      problem.SetParameterBlockConstant(batch.state.velocity.data()); //todo(kdaun) add imu delay
+      problem.SetParameterBlockConstant(batch.state.velocity.data()); //todo(kdaun)  add imu delay
     } else {
       problem.SetParameterization(batch.state.rotation.data(),
                                   new ceres::QuaternionParameterization());
@@ -401,12 +405,12 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   ceres::Solver::Summary summary;
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   // The optimized states in 'batches_' are in the submap frame and we transform
-  // them in place to be in the local SLAM frame again.
+  // them in place to be in the local SLAM frame again
 
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
     LOG(WARNING)<<summary.FullReport();
 
-  //TransformStates(matching_submap->local_pose);
+  TransformStates(matching_submap->local_pose);
 
   if (num_update_scans_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
           || num_accumulated_ < options_.scans_per_accumulation())
@@ -461,7 +465,7 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size()),
+                            options_.voxel_filter_size()*0.25),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
                             options_.voxel_filter_size())};
 

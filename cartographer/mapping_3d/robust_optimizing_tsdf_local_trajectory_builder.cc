@@ -251,12 +251,12 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
   }
 
   ceres::Problem problem;
- /* const TSDF* const matching_submap =
-      submaps_->Get(submaps_->matching_index());*/ //todo(kdaun) reenable
+  const TSDF* const matching_submap =
+      submaps_->Get(submaps_->matching_index());
   // We transform the states in 'batches_' in place to be in the submap frame as
   // expected by the OccupiedSpaceCostFunctor. This is reverted after solving
   // the optimization problem.
- // TransformStates(matching_submap->local_pose.inverse()); //todo(kdaun) reenable
+  TransformStates(matching_submap->local_pose.inverse());
   for (size_t i = 0; i < batches_.size(); ++i) {
     Batch& batch = batches_[i];
     /*
@@ -294,7 +294,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
                         batch.high_resolution_filtered_points.size())),
                 batch.high_resolution_filtered_points,
                 submaps_->GetChiselPtr(submaps_->matching_index()),1,
-                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance, false, true),
             batch.high_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
     problem.AddResidualBlock(
@@ -307,7 +307,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
                         batch.low_resolution_filtered_points.size())),
                 batch.low_resolution_filtered_points,
                 submaps_->GetChiselPtr(submaps_->matching_index()),1,
-                submaps_->Get(submaps_->matching_index())->max_truncation_distance),
+                submaps_->Get(submaps_->matching_index())->max_truncation_distance, false, true),
             batch.low_resolution_filtered_points.size()),
         nullptr, batch.state.translation.data(), batch.state.rotation.data());
 
@@ -416,7 +416,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
     LOG(WARNING)<<summary.FullReport();
 
-  //TransformStates(matching_submap->local_pose);
+  TransformStates(matching_submap->local_pose);
 
   if (num_update_scans_ < options_.optimizing_local_trajectory_builder_options().scans_per_map_update()
           || num_accumulated_ < options_.scans_per_accumulation())
@@ -467,7 +467,7 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size()),
+                            options_.voxel_filter_size()*0.25),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
                             options_.voxel_filter_size())};
 

@@ -180,7 +180,7 @@ void VoxbloxESDFs::InsertRangeData(const sensor::RangeData& range_data_in_tracki
         std::shared_ptr<voxblox::EsdfIntegrator> esdf_integrator =
                 esdf_integrators_[insertion_index];
 
-        const bool clear_esdf = true; //todo(kdaun) copied this from voxblox for now, should go to config
+        const bool clear_esdf = false; //todo(kdaun) copied this from voxblox for now, should go to config
         if (clear_esdf) {
           esdf_integrator->updateFromTsdfLayerBatch();
         } else {

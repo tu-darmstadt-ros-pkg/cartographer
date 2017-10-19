@@ -214,9 +214,9 @@ KalmanVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData insertion_filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size() * 0.25),
+                            options_.voxel_filter_size()),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
-                            options_.voxel_filter_size() * 0.25)};
+                            options_.voxel_filter_size())};
 
   return InsertIntoSubmap(time, insertion_filtered_range_data, pose_observation,
                           covariance_estimate, sensor_origin, combined_range_data);

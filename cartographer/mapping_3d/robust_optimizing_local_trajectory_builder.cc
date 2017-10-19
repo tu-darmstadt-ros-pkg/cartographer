@@ -186,6 +186,7 @@ RobustOptimizingLocalTrajectoryBuilder::AddRangefinderData(
   imu_tracker_->Advance(time);
   if (batches_.empty()) {
     // First rangefinder data ever. Initialize to the origin.
+    LOG(INFO)<<"pg orientation:"<<imu_tracker_->orientation().w()<<" "<<imu_tracker_->orientation().x();
     double imu_initial_delay = options_.optimizing_local_trajectory_builder_options().use_imu_time_calibration() ?
           options_.optimizing_local_trajectory_builder_options().imu_initial_delay() : 0.0;
     batches_.push_back(
@@ -430,7 +431,7 @@ RobustOptimizingLocalTrajectoryBuilder::AddAccumulatedRangeData(
   const sensor::RangeData filtered_range_data = {
       range_data_in_tracking.origin,
       sensor::VoxelFiltered(range_data_in_tracking.returns,
-                            options_.voxel_filter_size()),
+                            options_.voxel_filter_size()*0.25),
       sensor::VoxelFiltered(range_data_in_tracking.misses,
                             options_.voxel_filter_size())};
 
