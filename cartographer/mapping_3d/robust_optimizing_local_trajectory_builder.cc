@@ -149,6 +149,10 @@ std::unique_ptr<RobustOptimizingLocalTrajectoryBuilder::InsertionResult>
 RobustOptimizingLocalTrajectoryBuilder::AddRangefinderData(
     const common::Time time, const Eigen::Vector3f& origin,
     const sensor::PointCloud& ranges) {
+  if (imu_data_.size()<20) {
+    LOG(INFO) << "Not enough IMU data yet:"<<imu_data_.size();
+    return nullptr;
+  }
   CHECK_GT(ranges.size(), 0);
 
   // TODO(hrapp): Handle misses.
@@ -221,13 +225,13 @@ void RobustOptimizingLocalTrajectoryBuilder::RemoveObsoleteSensorData() {
   }
 
   while (imu_data_.size() > 1 &&
-         (batches_.empty() || imu_data_[1].time <= (batches_.front().time - common::FromSeconds(4.0)))) {
+         (imu_data_[1].time <= (batches_.front().time - common::FromSeconds(4.0)))) {
     imu_data_.pop_front();
   }
 
   while (
       odometer_data_.size() > 1 &&
-      (batches_.empty() || odometer_data_[1].time <= batches_.front().time)) {
+      (odometer_data_[1].time <= batches_.front().time)) {
     odometer_data_.pop_front();
   }
 }
@@ -386,6 +390,8 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   // The optimized states in 'batches_' are in the submap frame and we transform
   // them in place to be in the local SLAM frame again.
+  data_logger_.addElement("solver_iterations", summary.iterations.size());
+  data_logger_.addElement("optimization_time", summary.total_time_in_seconds);
 
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
     LOG(WARNING)<<summary.FullReport();
@@ -420,8 +426,14 @@ RobustOptimizingLocalTrajectoryBuilder::MaybeOptimize(const common::Time time) {
     else if(i_batch == options_.scans_per_accumulation()) // for the initialization we accumulated a whole scan to match against
       break;
   }
-  return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu), optimized_pose,
+  std::clock_t start_map_update = std::clock();
+  std::unique_ptr<InsertionResult> insertion_result = AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu), optimized_pose,
                                  accumulated_range_data_in_tracking);
+  double time_map_update = (std::clock() - start_map_update) / (double)CLOCKS_PER_SEC;
+  data_logger_.addElement("time_map_update", time_map_update);
+  data_logger_.toCSV("log_pg");
+
+  return(insertion_result);
 }
 
 std::unique_ptr<RobustOptimizingLocalTrajectoryBuilder::InsertionResult>

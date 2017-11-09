@@ -342,7 +342,7 @@ void VoxbloxTSDFs::AddTSDF(const transform::Rigid3d& origin) {
   voxblox::TsdfIntegratorBase::Config integrator_config;
   integrator_config.voxel_carving_enabled = true;
   integrator_config.default_truncation_distance = options_.projection_integrator_options().truncation_distance();//config.tsdf_voxel_size * 2;
-  integrator_config.max_ray_length_m = 30.0;
+  integrator_config.max_ray_length_m = 100.0;
 
   std::shared_ptr<voxblox::TsdfIntegratorBase> tsdf_integrator_;
   tsdf_integrator_.reset(new voxblox::SimpleTsdfIntegrator(

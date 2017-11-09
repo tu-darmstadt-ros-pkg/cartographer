@@ -136,6 +136,10 @@ std::unique_ptr<OptimizingLocalTrajectoryBuilder::InsertionResult>
 OptimizingLocalTrajectoryBuilder::AddRangefinderData(
     const common::Time time, const Eigen::Vector3f& origin,
     const sensor::PointCloud& ranges) {
+  if (imu_data_.size()<20) {
+    LOG(INFO) << "No IMU data yet.";
+    return nullptr;
+  }
   CHECK_GT(ranges.size(), 0);
 
   // TODO(hrapp): Handle misses.

@@ -412,6 +412,10 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   // The optimized states in 'batches_' are in the submap frame and we transform
   // them in place to be in the local SLAM frame again.
+  data_logger_.addElement("solver_iterations", summary.iterations.size());
+  data_logger_.addElement("optimization_time", summary.total_time_in_seconds);
+
+
 
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
     LOG(WARNING)<<summary.FullReport();
@@ -453,10 +457,16 @@ RobustOptimizingTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::Time tim
       ( batches_[options_.optimizing_local_trajectory_builder_options().scans_per_map_update()/2].state.ToRigid()).cast<float>();
   Eigen::Vector3f sensor_origin = transform_median * origin;
 
-  return AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu),
+  std::clock_t start_map_update = std::clock();
+  std::unique_ptr<InsertionResult> insertion_result = AddAccumulatedRangeData(batches_[scans_per_map_update - 1].time + common::FromSeconds(batches_[scans_per_map_update - 1].delay_imu),
                                  optimized_pose,
                                  accumulated_range_data_in_tracking,
                                  sensor_origin);
+  double time_map_update = (std::clock() - start_map_update) / (double)CLOCKS_PER_SEC;
+  data_logger_.addElement("time_map_update", time_map_update);
+  data_logger_.toCSV("log_ctsdf");
+
+  return(insertion_result);
 }
 
 std::unique_ptr<RobustOptimizingTSDFLocalTrajectoryBuilder::InsertionResult>

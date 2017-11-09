@@ -406,6 +406,8 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::MaybeOptimize(const common::T
   ceres::Solve(ceres_solver_options_, &problem, &summary);
   // The optimized states in 'batches_' are in the submap frame and we transform
   // them in place to be in the local SLAM frame again
+  data_logger_.addElement("solver_iterations", summary.iterations.size());
+  data_logger_.addElement("optimization_time", summary.total_time_in_seconds);
 
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
     LOG(WARNING)<<summary.FullReport();
@@ -479,11 +481,18 @@ RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::AddAccumulatedRangeData(
       sensor::TransformPointCloud(filtered_range_data.returns,
                                   optimized_pose.cast<float>())};
 
-  return InsertIntoSubmap(time,
+
+  std::clock_t start_map_update = std::clock();
+  std::unique_ptr<InsertionResult> insertion_result = InsertIntoSubmap(time,
                           filtered_range_data,
                           optimized_pose,
                           sensor_origin,
                           world_to_sensor);
+  double time_map_update = (std::clock() - start_map_update) / (double)CLOCKS_PER_SEC;
+  data_logger_.addElement("time_map_update", time_map_update);
+  data_logger_.toCSV("log_vtsdf");
+
+  return(insertion_result);
 }
 
 const RobustOptimizingVoxbloxTSDFLocalTrajectoryBuilder::PoseEstimate&

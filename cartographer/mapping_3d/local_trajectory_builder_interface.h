@@ -25,6 +25,7 @@
 #include "cartographer/mapping_3d/submaps.h"
 #include "cartographer/sensor/range_data.h"
 #include "cartographer/transform/rigid_transform.h"
+#include "cartographer/io/data_logger.h"
 
 namespace cartographer {
 namespace mapping_3d {
@@ -63,6 +64,8 @@ class LocalTrajectoryBuilderInterface {
 
  protected:
   LocalTrajectoryBuilderInterface() {}
+  io::DataLogger data_logger_;
+
 };
 
 }  // namespace mapping_3d
