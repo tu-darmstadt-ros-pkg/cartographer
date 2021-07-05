@@ -24,32 +24,34 @@ namespace sensor {
 
 RangeData TransformRangeData(const RangeData& range_data,
                              const transform::Rigid3f& transform) {
-  return RangeData{transform * range_data.origin,
-                   TransformPointCloud(range_data.returns, transform),
-                   TransformPointCloud(range_data.misses, transform),
-                   range_data.width};
+  return RangeData{
+      transform * range_data.origin,
+      TransformPointCloud(range_data.returns, transform),
+      TransformPointCloud(range_data.misses, transform),
+  };
 }
 
 TimedRangeData TransformTimedRangeData(const TimedRangeData& range_data,
                                        const transform::Rigid3f& transform) {
-  return TimedRangeData{transform * range_data.origin,
-                        TransformTimedPointCloud(range_data.returns, transform),
-                        TransformTimedPointCloud(range_data.misses, transform),
-                        range_data.width};
+  return TimedRangeData{
+      transform * range_data.origin,
+      TransformTimedPointCloud(range_data.returns, transform),
+      TransformTimedPointCloud(range_data.misses, transform),
+  };
 }
 
 RangeData CropRangeData(const RangeData& range_data, const float min_z,
                         const float max_z) {
-  return RangeData{
-      range_data.origin, CropPointCloud(range_data.returns, min_z, max_z),
-      CropPointCloud(range_data.misses, min_z, max_z), range_data.width};
+  return RangeData{range_data.origin,
+                   CropPointCloud(range_data.returns, min_z, max_z),
+                   CropPointCloud(range_data.misses, min_z, max_z)};
 }
 
 TimedRangeData CropTimedRangeData(const TimedRangeData& range_data,
                                   const float min_z, const float max_z) {
-  return TimedRangeData{
-      range_data.origin, CropTimedPointCloud(range_data.returns, min_z, max_z),
-      CropTimedPointCloud(range_data.misses, min_z, max_z), range_data.width};
+  return TimedRangeData{range_data.origin,
+                        CropTimedPointCloud(range_data.returns, min_z, max_z),
+                        CropTimedPointCloud(range_data.misses, min_z, max_z)};
 }
 
 proto::RangeData ToProto(const RangeData& range_data) {
@@ -94,16 +96,13 @@ RangeData FromProto(const proto::RangeData& proto) {
   return RangeData{transform::ToEigen(proto.origin()), returns, misses};
 }
 
-RangeData::RangeData() : origin(Eigen::Vector3f::Zero()), width(0) {}
+RangeData::RangeData() : origin(Eigen::Vector3f::Zero()) {}
 RangeData::RangeData(const Eigen::Vector3f& origin, const PointCloud& returns,
                      const PointCloud& misses)
-    : origin(origin), returns(returns), misses(misses), width(0) {}
-RangeData::RangeData(const Eigen::Vector3f& origin, const PointCloud& returns,
-                     const PointCloud& misses, size_t width)
-    : origin(origin), returns(returns), misses(misses), width(width) {}
+    : origin(origin), returns(returns), misses(misses) {}
 
 RangeData::RangeData(const TimedRangeData& timed_range_data)
-    : origin(timed_range_data.origin), width(timed_range_data.width) {
+    : origin(timed_range_data.origin) {
   returns.reserve(timed_range_data.returns.size());
   for (const auto& timed_return : timed_range_data.returns) {
     returns.push_back({timed_return.position});

@@ -30,14 +30,6 @@ struct State {
   }
 };
 
-struct ControlPoint {
-  common::Time time;
-  State state;
-  double translation_ratio = 0.0;
-  double rotation_ratio = 0.0;
-  double time_ratio = 0.0;
-};
-
 }  // namespace mapping
 }  // namespace cartographer
 
