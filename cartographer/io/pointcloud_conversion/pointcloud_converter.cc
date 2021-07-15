@@ -64,7 +64,6 @@ namespace cartographer {
                 cartographer::sensor::PointCloud cartographer_cloud;
 
                 // Fill the Point Cloud with points (shape of a cube)
-                // Todo: Change scan_cloud_generator.cc to add noise on the z-dimension as well. Maybe an error?
                 cartographer::evaluation::ScanCloudGenerator myScanCloudGenerator(distanceBetweenPoints);
                 myScanCloudGenerator.generateCube(cartographer_cloud, cubeSideLength, noise);
 
@@ -80,12 +79,6 @@ namespace cartographer {
                 open3d::geometry::PointCloud myPointCloud(listOfPoints);
                 return std::make_shared<open3d::geometry::PointCloud>(myPointCloud);
             }
-
-
-            // Abgeschrieben von cartographer::mapping:3d::tsdf_range_data_inserter_3d
-            // Sample TSDF Generation in Cartographer --> see evaluation/scan_matching_evaluation.cc
-            // Todo: Gewichte werden nicht in die Rechnung einbezogen.
-            //      Betragsmäßig kleinere Werte überschreiben betragsmäßig größere Werte.
 
             static void raycastPointWithNormal(const Eigen::Vector3f &hit,
                                         const Eigen::Vector3f &normal,
