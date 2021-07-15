@@ -343,8 +343,8 @@ namespace cartographer {
                         absl::make_unique<optimization::OptimizationProblem3D>(my_opt_prob_options);
                 cartographer::common::ThreadPool my_thread_pool(1);
 
-                my_posegraph_options.set_global_sampling_ratio(0.5);
-                my_posegraph_options.mutable_constraint_builder_options()->set_sampling_ratio(0.5);
+                my_posegraph_options.set_global_sampling_ratio(0.1);
+                my_posegraph_options.mutable_constraint_builder_options()->set_sampling_ratio(0.1);
 
                 cartographer::mapping::PoseGraph3D posegraph(
                         my_posegraph_options,
